@@ -14,6 +14,7 @@ interface Props {
 export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroReady }: Props) {
   const [url, setUrl] = useState("")
   const [loading, setLoading] = useState(false)
+  const [summaryLoadingId, setSummaryLoadingId] = useState<string | null>(null)
   const [status, setStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
 
@@ -122,14 +123,23 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
                       <div className="flex gap-2">
                         <button
                           onClick={async () => {
-                            const intro = await getIntro(s.id)
-                            onIntroReady(intro)
+                            setSummaryLoadingId(s.id)
+                            try {
+                              const intro = await getIntro(s.id)
+                              onIntroReady(intro)
+                            } finally {
+                              setSummaryLoadingId(null)
+                            }
                           }}
-                          className="flex-1 py-1.5 rounded-lg text-xs font-medium
+                          disabled={summaryLoadingId === s.id}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium
                             bg-violet-500/15 text-violet-300 border border-violet-500/20
-                            hover:bg-violet-500/25 transition-colors"
+                            hover:bg-violet-500/25 disabled:opacity-50 transition-colors"
                         >
-                          ✨ Summary
+                          {summaryLoadingId === s.id
+                            ? <><Loader2 className="w-3 h-3 animate-spin" /> Loading...</>
+                            : <>✨ Summary</>
+                          }
                         </button>
                         <button
                           onClick={() => handleDelete(s)}

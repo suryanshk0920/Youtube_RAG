@@ -4,7 +4,6 @@ import { Send, Square } from "lucide-react"
 import { streamChat } from "@/lib/api"
 import { IntroCard } from "./IntroCard"
 import { MessageBubble } from "./MessageBubble"
-import { SuggestedQuestions } from "./SuggestedQuestions"
 import type { Citation, IntroData, Message } from "@/types"
 
 interface Props {
@@ -36,7 +35,7 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss }: Props) {
 
   async function sendMessage(question: string) {
     if (!question.trim() || isStreaming) return
-    onIntroDismiss()
+    // Don't dismiss intro — keep it visible above the chat
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -119,22 +118,19 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss }: Props) {
     setIsStreaming(false)
   }
 
-  const showSuggestions =
-    pendingIntro && messages.length === 0 && pendingIntro.questions.length > 0
-
   return (
     <div className="flex flex-col h-full">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-1">
-        {/* Intro card */}
-        {pendingIntro && messages.length === 0 && (
+        {/* Intro card — always visible when set, pinned at top */}
+        {pendingIntro && (
           <IntroCard
             intro={pendingIntro}
             onQuestionSelect={(q) => sendMessage(q)}
           />
         )}
 
-        {/* Empty state */}
+        {/* Empty state — only when no intro and no messages */}
         {!pendingIntro && messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center py-20">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500
@@ -154,16 +150,6 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss }: Props) {
 
         <div ref={bottomRef} />
       </div>
-
-      {/* Suggested questions */}
-      {showSuggestions && (
-        <div className="px-6 pb-3">
-          <SuggestedQuestions
-            questions={pendingIntro.questions}
-            onSelect={(q) => sendMessage(q)}
-          />
-        </div>
-      )}
 
       {/* Input */}
       <div className="px-6 pb-6 pt-2">
