@@ -126,6 +126,20 @@ class LLMService(ABC):
         result = self.answer(question=prompt, chunks=[], history=[])
         return result.text
 
+    def stream_answer(
+        self,
+        question: str,
+        chunks: list[tuple[Chunk, float]],
+        history: list[dict],
+    ):
+        """
+        Stream answer tokens as a generator of strings.
+        Default falls back to yielding the full answer at once.
+        Override in subclasses for real token streaming.
+        """
+        answer = self.answer(question=question, chunks=chunks, history=history)
+        yield answer.text
+
 
 # ── Gemini Implementation ──────────────────────────────────────────
 class GeminiLLMService(LLMService):
@@ -240,6 +254,58 @@ class OpenRouterLLMService(LLMService):
         response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"].get("content") or ""
+
+    def stream_answer(
+        self,
+        question: str,
+        chunks: list[tuple[Chunk, float]],
+        history: list[dict],
+    ):
+        """
+        Stream answer tokens from OpenRouter using SSE.
+        Yields text delta strings as they arrive.
+        """
+        if not chunks:
+            yield "I could not find relevant information in the ingested videos."
+            return
+
+        context = "\n\n---\n\n".join(
+            f"[{c.video_title} | {c.timestamp_label}]\n{c.text}"
+            for c, _ in chunks
+        )
+        prompt = f"Context from videos:\n\n{context}\n\nQuestion: {question}"
+
+        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        for turn in history[-config.CONVERSATION_HISTORY_TURNS:]:
+            role = "assistant" if turn["role"] == "assistant" else "user"
+            msg: dict = {"role": role, "content": turn.get("content", "")}
+            if role == "assistant" and turn.get("reasoning_details"):
+                msg["reasoning_details"] = turn["reasoning_details"]
+            messages.append(msg)
+        messages.append({"role": "user", "content": prompt})
+
+        payload = {
+            "model": config.OPENROUTER_MODEL,
+            "messages": messages,
+            "stream": True,
+        }
+
+        import json as _json
+        with self._http.stream(
+            "POST", self._API_URL, headers=self._headers, json=payload
+        ) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line or line == "data: [DONE]":
+                    continue
+                if line.startswith("data: "):
+                    try:
+                        chunk_data = _json.loads(line[6:])
+                        delta = chunk_data["choices"][0]["delta"].get("content")
+                        if delta:
+                            yield delta
+                    except Exception:
+                        continue
 
     def answer(
         self,
