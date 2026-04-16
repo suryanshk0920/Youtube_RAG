@@ -1,0 +1,37 @@
+# Secrets
+support
+.env
+*.env
+
+# Data
+tubequery/data/
+
+# Blueprint & docs
+_blueprint.txt
+TubeQuery_Blueprint.docx
+*.docx
+*.pdf
+*.doc
+tubequery/docs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
