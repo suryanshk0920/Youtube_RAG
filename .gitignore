@@ -2,6 +2,7 @@
 support
 .env
 *.env
+youtube_cookies.txt
 
 # Data
 tubequery/data/
