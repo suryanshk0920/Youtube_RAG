@@ -108,9 +108,10 @@ def chat_stream(
                 yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
 
             # After streaming, build citations from the full response
+            import re
             from services.llm_service import _filter_citations
-            from services.llm_service import _strip_sources_block
-            citations = _filter_citations(full_text, relevant_chunks)
+            clean_text = re.sub(r"\n*SOURCES:\s*\n(?:\s*-[^\n]*\n?)*", "", full_text, flags=re.IGNORECASE).strip()
+            citations = _filter_citations(clean_text, relevant_chunks)
             for c in citations:
                 yield f"data: {json.dumps({'type': 'citation', 'content': {'video_title': c.video_title, 'video_id': c.video_id, 'timestamp_label': c.timestamp_label, 'youtube_url': c.youtube_url, 'excerpt': c.excerpt}})}\n\n"
 
