@@ -35,3 +35,8 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Next.js
+tubequery-ui/.env.local
+tubequery-ui/.next/
+tubequery-ui/node_modules/
