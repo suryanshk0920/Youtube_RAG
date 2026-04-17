@@ -7,13 +7,14 @@ import type { Citation, IntroData, Message } from "@/types"
 
 interface Props {
   activeKb: string
+  activeSourceId: string | null
   pendingIntro: IntroData | null
   onIntroDismiss: () => void
   messages: Message[]
   onMessagesChange: (messages: Message[]) => void
 }
 
-export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _, messages, onMessagesChange }: Props) {
+export function ChatPanel({ activeKb, activeSourceId, pendingIntro, onIntroDismiss: _, messages, onMessagesChange }: Props) {
   const [input, setInput] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -84,7 +85,8 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _, messages,
           setIsStreaming(false)
         },
       },
-      controller.signal
+      controller.signal,
+      activeSourceId ? [activeSourceId] : undefined
     )
   }
 

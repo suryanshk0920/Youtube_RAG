@@ -92,7 +92,7 @@ export default function Home() {
 
   function handleSelectSession(sourceId: string) {
     setActiveSourceId(sourceId)
-    setPendingIntro(null)
+    setPendingIntro(null)  // always clear intro when switching sessions
     const session = sessions[sourceId]
     if (session && session.kbId !== activeKb) setActiveKb(session.kbId)
     setMobileTab("chat")
@@ -129,6 +129,7 @@ export default function Home() {
 
   const chatProps = {
     activeKb: activeKbForChat,
+    activeSourceId,   // pass so chat scopes to this video's chunks
     pendingIntro,
     onIntroDismiss: () => setPendingIntro(null),
     messages: activeMessages,

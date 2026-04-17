@@ -110,7 +110,8 @@ export async function streamChat(
   kb_id: string,
   history: Message[],
   callbacks: StreamCallbacks,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  source_ids?: string[]
 ): Promise<void> {
   try {
     const res = await fetch(`${BASE}/chat/stream`, {
@@ -120,6 +121,7 @@ export async function streamChat(
         question,
         kb_id,
         history: history.map((m) => ({ role: m.role, content: m.content })),
+        source_ids: source_ids ?? null,
       }),
       signal,
     })
