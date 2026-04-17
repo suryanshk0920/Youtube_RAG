@@ -87,6 +87,7 @@ def chat_stream(
                 top_k=config.TOP_K,
                 source_ids=body.source_ids,
             )
+            logger.info("Chat search: kb=%s source_ids=%s results=%d", body.kb_id, body.source_ids, len(results))
             relevant_chunks = [
                 (chunk, score) for chunk, score in results
                 if score >= config.MIN_RELEVANCE_SCORE
