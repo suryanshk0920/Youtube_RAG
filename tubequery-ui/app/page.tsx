@@ -51,8 +51,15 @@ export default function Home() {
 
   function handleMessagesChange(sourceId: string, messages: Message[]) {
     const existing = sessions[sourceId]
-    if (!existing) return
-    const updated = { ...sessions, [sourceId]: { ...existing, messages } }
+    // Auto-create session if it doesn't exist yet (user chatted without selecting a session)
+    const session = existing ?? {
+      sourceId,
+      sourceTitle: allSources.find(s => s.id === sourceId)?.title ?? sourceId,
+      kbId: activeKb,
+      messages: [],
+      createdAt: new Date().toISOString(),
+    }
+    const updated = { ...sessions, [sourceId]: { ...session, messages } }
     setSessions(updated)
     saveSessions(updated)
   }
