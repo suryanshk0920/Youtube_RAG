@@ -294,21 +294,23 @@ class OpenRouterLLMService(LLMService):
         ) as response:
             response.raise_for_status()
             buffer = ""
-            for chunk in response.iter_text():
-                buffer += chunk
-                while "\n" in buffer:
-                    line, buffer = buffer.split("\n", 1)
-                    line = line.strip()
-                    if not line or line == "data: [DONE]":
-                        continue
-                    if line.startswith("data: "):
-                        try:
-                            chunk_data = _json.loads(line[6:])
-                            delta = chunk_data["choices"][0]["delta"].get("content")
-                            if delta:
-                                yield delta
-                        except Exception:
+            for raw_chunk in response.iter_bytes():
+                buffer += raw_chunk.decode("utf-8", errors="replace")
+                # SSE events are separated by double newlines
+                while "\n\n" in buffer:
+                    event, buffer = buffer.split("\n\n", 1)
+                    for line in event.splitlines():
+                        line = line.strip()
+                        if not line or line == "data: [DONE]":
                             continue
+                        if line.startswith("data: "):
+                            try:
+                                chunk_data = _json.loads(line[6:])
+                                delta = chunk_data["choices"][0]["delta"].get("content")
+                                if delta:
+                                    yield delta
+                            except Exception:
+                                continue
 
     def answer(
         self,
