@@ -25,6 +25,8 @@ export function CitationChip({ citation }: { citation: Citation }) {
         transition: "all 0.18s ease",
         cursor: "pointer",
         maxWidth: "100%",
+        minWidth: 0,
+        overflow: "hidden",
       }}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLElement
@@ -46,6 +48,8 @@ export function CitationChip({ citation }: { citation: Citation }) {
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
+        minWidth: 0,
+        flex: 1,
       }}>
         "{excerpt}"
       </span>
@@ -55,6 +59,7 @@ export function CitationChip({ citation }: { citation: Citation }) {
         fontFamily: "var(--font-dm-mono), monospace",
         fontWeight: 500,
         flexShrink: 0,
+        marginLeft: "2px",
       }}>
         {citation.timestamp_label}
       </span>

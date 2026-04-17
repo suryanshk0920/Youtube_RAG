@@ -86,8 +86,8 @@ export function MessageBubble({ message }: { message: Message }) {
 
         {/* Footer: citations + copy */}
         {!message.isStreaming && message.content && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "10px", flexWrap: "wrap", gap: "6px" }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginTop: "10px", flexWrap: "wrap", gap: "6px", minWidth: 0, overflow: "hidden" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", minWidth: 0, flex: 1, overflow: "hidden" }}>
               {message.citations?.map((c, i) => (
                 <CitationChip key={i} citation={c} />
               ))}
