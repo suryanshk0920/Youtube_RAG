@@ -49,40 +49,36 @@ def _filter_citations(
     chunks: list[tuple[Chunk, float]],
 ) -> list[Citation]:
     """
-    Parse the SOURCES section from the LLM answer and return only
-    citations that match chunks the model actually referenced.
-
-    Falls back to the single highest-scoring chunk if parsing fails.
+    Build citations. Tries SOURCES block parsing first, always falls back
+    to top-scoring chunk so there is always at least one citation.
     """
     import re
 
-    # Extract the SOURCES block from the answer
-    sources_match = re.search(r"SOURCES:\s*\n((?:\s*-[^\n]+\n?)+)", answer_text, re.IGNORECASE)
+    def make_citation(chunk: Chunk) -> Citation:
+        return Citation(
+            video_title=chunk.video_title,
+            video_id=chunk.video_id,
+            timestamp_label=chunk.timestamp_label,
+            youtube_url=chunk.youtube_url,
+            excerpt=chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
+        )
 
+    sources_match = re.search(r"SOURCES:\s*\n((?:\s*-[^\n]+\n?)+)", answer_text, re.IGNORECASE)
     matched: list[Citation] = []
 
     if sources_match:
-        sources_block = sources_match.group(1)
-        # Each line looks like: - [Video Title] at [MM:SS]
-        for line in sources_block.splitlines():
+        for line in sources_match.group(1).splitlines():
             line = line.strip().lstrip("- ").strip()
             if not line:
                 continue
-            # Try to find a chunk whose title + timestamp appears in this line
-            for chunk, score in chunks:
-                title_match = chunk.video_title.lower()[:30] in line.lower()
-                ts_match = chunk.timestamp_label in line
-                if title_match and ts_match:
-                    matched.append(Citation(
-                        video_title=chunk.video_title,
-                        video_id=chunk.video_id,
-                        timestamp_label=chunk.timestamp_label,
-                        youtube_url=chunk.youtube_url,
-                        excerpt=chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
-                    ))
+            for chunk, _ in chunks:
+                # Match by title fragment (first 20 chars) OR timestamp
+                if (chunk.video_title.lower()[:20] and chunk.video_title.lower()[:20] in line.lower()) \
+                        or chunk.timestamp_label in line:
+                    matched.append(make_citation(chunk))
                     break
 
-    # Deduplicate by timestamp
+    # Deduplicate
     seen: set[str] = set()
     unique: list[Citation] = []
     for c in matched:
@@ -91,17 +87,9 @@ def _filter_citations(
             seen.add(key)
             unique.append(c)
 
-    # Fallback: if parsing found nothing, use only the top-scoring chunk
+    # Always return at least the top-scoring chunk
     if not unique and chunks:
-        best = max(chunks, key=lambda x: x[1])
-        chunk, _ = best
-        unique.append(Citation(
-            video_title=chunk.video_title,
-            video_id=chunk.video_id,
-            timestamp_label=chunk.timestamp_label,
-            youtube_url=chunk.youtube_url,
-            excerpt=chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
-        ))
+        unique.append(make_citation(max(chunks, key=lambda x: x[1])[0]))
 
     return unique
 
