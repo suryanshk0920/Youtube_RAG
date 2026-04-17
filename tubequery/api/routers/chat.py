@@ -13,6 +13,8 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
+from api.auth import get_current_user, get_supabase
+from api.db import log_usage, upsert_user
 from api.dependencies import get_embedding_service, get_llm_service, get_vector_store
 from api.schemas import ChatRequest, ChatResponse, CitationOut
 from core.retriever import ask
@@ -25,6 +27,8 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 @router.post("", response_model=ChatResponse)
 def chat(
     body: ChatRequest,
+    user: dict = Depends(get_current_user),
+    db=Depends(get_supabase),
     embedding_service=Depends(get_embedding_service),
     vector_store=Depends(get_vector_store),
     llm_service=Depends(get_llm_service),
@@ -41,18 +45,10 @@ def chat(
             history=history,
             source_ids=body.source_ids,
         )
+        log_usage(db, user["uid"], "chat", metadata={"question": body.question[:100]})
         return ChatResponse(
             answer=answer.text,
-            citations=[
-                CitationOut(
-                    video_title=c.video_title,
-                    video_id=c.video_id,
-                    timestamp_label=c.timestamp_label,
-                    youtube_url=c.youtube_url,
-                    excerpt=c.excerpt,
-                )
-                for c in answer.citations
-            ],
+            citations=[CitationOut(video_title=c.video_title, video_id=c.video_id, timestamp_label=c.timestamp_label, youtube_url=c.youtube_url, excerpt=c.excerpt) for c in answer.citations],
             found_relevant_content=answer.found_relevant_content,
         )
     except Exception as e:
@@ -63,6 +59,8 @@ def chat(
 @router.post("/stream")
 def chat_stream(
     body: ChatRequest,
+    user: dict = Depends(get_current_user),
+    db=Depends(get_supabase),
     embedding_service=Depends(get_embedding_service),
     vector_store=Depends(get_vector_store),
     llm_service=Depends(get_llm_service),
@@ -117,6 +115,7 @@ def chat_stream(
             for c in citations:
                 yield f"data: {json.dumps({'type': 'citation', 'content': {'video_title': c.video_title, 'video_id': c.video_id, 'timestamp_label': c.timestamp_label, 'youtube_url': c.youtube_url, 'excerpt': c.excerpt}})}\n\n"
 
+            log_usage(db, user["uid"], "chat", metadata={"question": body.question[:100]})
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         except Exception as e:

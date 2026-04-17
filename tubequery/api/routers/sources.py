@@ -1,74 +1,60 @@
 """
-Sources Router
-==============
-GET    /sources          — list all sources (optionally filter by kb_id)
-DELETE /sources/{id}     — remove a source and its vectors
+Sources Router — auth-protected, user-scoped
 """
-
 from __future__ import annotations
-
 import logging
-
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
-
+from api.auth import get_current_user, get_supabase
 from api.dependencies import get_vector_store
-from api.schemas import SourceOut
-from core.source_store import delete_source_record, load_sources
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sources", tags=["sources"])
 
 
-@router.get("", response_model=list[SourceOut])
-def list_sources(kb_id: str | None = Query(None, description="Filter by knowledge base")):
-    """List all ingested sources, optionally filtered by kb_id."""
-    sources = load_sources(kb_id=kb_id)
-    return [
-        SourceOut(
-            id=s.id,
-            title=s.title,
-            url=s.url,
-            source_type=s.source_type.value,
-            kb_id=s.kb_id,
-            status=s.status.value,
-            video_count=s.video_count,
-            chunk_count=s.chunk_count,
-            created_at=s.created_at,
-        )
-        for s in sources
-    ]
+@router.get("")
+def list_sources(
+    kb_id: str | None = Query(None),
+    user: dict = Depends(get_current_user),
+    db: Any = Depends(get_supabase),
+):
+    """List sources for the current user only."""
+    rows = db.table("sources").select("*").eq("user_id", user["uid"])
+    if kb_id:
+        rows = rows.eq("kb_id", kb_id)
+    result = rows.order("created_at", desc=True).execute()
+    return result.data or []
 
 
 @router.delete("/{source_id}", status_code=204)
 def delete_source(
     source_id: str,
-    kb_id: str = Query(..., description="Knowledge base the source belongs to"),
+    kb_id: str = Query(...),
+    user: dict = Depends(get_current_user),
+    db: Any = Depends(get_supabase),
     vector_store=Depends(get_vector_store),
 ):
-    """Remove a source's vectors from ChromaDB and its metadata record."""
-    sources = load_sources()
-    source = next((s for s in sources if s.id == source_id), None)
-    if not source:
-        raise HTTPException(status_code=404, detail=f"Source {source_id} not found")
-
+    """Delete a source — only if it belongs to the current user."""
+    result = db.table("sources").select("id").eq("id", source_id).eq("user_id", user["uid"]).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Source not found")
     vector_store.delete_source(source_id, kb_id)
-    delete_source_record(source_id)
+    db.table("sources").delete().eq("id", source_id).eq("user_id", user["uid"]).execute()
 
 
 @router.get("/stats/{kb_id}")
 def kb_stats(
     kb_id: str,
+    user: dict = Depends(get_current_user),
+    db: Any = Depends(get_supabase),
     vector_store=Depends(get_vector_store),
 ):
-    """Return stats for a knowledge base."""
-    sources = load_sources(kb_id=kb_id)
-    total_chunks = vector_store.count(kb_id)
-    total_videos = sum(s.video_count for s in sources)
-    last_updated = max((s.created_at for s in sources), default=None)
+    result = db.table("sources").select("video_count, chunk_count, created_at").eq("user_id", user["uid"]).eq("kb_id", kb_id).execute()
+    rows = result.data or []
     return {
         "kb_id": kb_id,
-        "source_count": len(sources),
-        "video_count": total_videos,
-        "chunk_count": total_chunks,
-        "last_updated": last_updated,
+        "source_count": len(rows),
+        "video_count": sum(r.get("video_count", 0) for r in rows),
+        "chunk_count": vector_store.count(kb_id),
+        "last_updated": max((r["created_at"] for r in rows), default=None),
     }

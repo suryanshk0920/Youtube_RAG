@@ -12,6 +12,9 @@ import json
 import logging
 import os
 
+from dotenv import load_dotenv
+load_dotenv()  # ensure .env is loaded before reading env vars
+
 import firebase_admin
 from firebase_admin import auth as firebase_auth, credentials
 from fastapi import Depends, HTTPException, status
