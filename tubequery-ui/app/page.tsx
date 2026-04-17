@@ -161,22 +161,74 @@ export default function Home() {
       {/* ── Mobile layout ──────────────────────────────────────── */}
       {isMobile && (
         <div style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "var(--bg-base)" }}>
-          {/* Content area — only active tab rendered */}
-          <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-            {mobileTab === "chat" && <ChatPanel {...chatProps} />}
-            {mobileTab === "add" && (
-              <div style={{ height: "100%", overflowY: "auto", background: "var(--bg-surface)" }}>
-                <IngestionPanel {...ingestProps} />
-              </div>
-            )}
-            {mobileTab === "library" && (
-              <div style={{ height: "100%", overflowY: "auto", background: "var(--bg-surface)" }}>
-                <Sidebar {...sidebarProps} />
-              </div>
-            )}
+
+          {/* Top bar */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: "12px",
+            padding: "12px 16px", borderBottom: "1px solid var(--border)",
+            background: "var(--bg-surface)", flexShrink: 0,
+          }}>
+            {/* Hamburger */}
+            <button
+              onClick={() => setMobileTab(mobileTab === "library" ? "chat" : "library")}
+              style={{
+                width: "36px", height: "36px", borderRadius: "9px",
+                border: "1px solid var(--border)", background: mobileTab === "library" ? "var(--amber-dim)" : "transparent",
+                color: mobileTab === "library" ? "var(--amber)" : "var(--text-muted)",
+                cursor: "pointer", display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", gap: "4px",
+                transition: "all 0.15s", flexShrink: 0,
+              }}
+            >
+              <span style={{ display: "block", width: "14px", height: "1.5px", background: "currentColor", borderRadius: "1px" }} />
+              <span style={{ display: "block", width: "14px", height: "1.5px", background: "currentColor", borderRadius: "1px" }} />
+              <span style={{ display: "block", width: "14px", height: "1.5px", background: "currentColor", borderRadius: "1px" }} />
+            </button>
+
+            {/* Wordmark */}
+            <p style={{ fontFamily: "var(--font-syne), sans-serif", fontWeight: 800, fontSize: "1.1rem", letterSpacing: "-0.03em", color: "var(--text-primary)", margin: 0 }}>
+              Tube<span style={{ color: "var(--amber)" }}>Query</span>
+            </p>
           </div>
 
-          {/* Bottom tab bar */}
+          {/* Drawer overlay */}
+          {mobileTab === "library" && (
+            <div
+              onClick={() => setMobileTab("chat")}
+              style={{
+                position: "fixed", inset: 0, zIndex: 40,
+                background: "rgba(0,0,0,0.5)",
+                backdropFilter: "blur(2px)",
+              }}
+            />
+          )}
+
+          {/* Slide-in drawer */}
+          <div style={{
+            position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 50,
+            width: "280px",
+            background: "var(--bg-surface)",
+            borderRight: "1px solid var(--border)",
+            transform: mobileTab === "library" ? "translateX(0)" : "translateX(-100%)",
+            transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1)",
+            overflowY: "auto",
+          }}>
+            <Sidebar {...sidebarProps} />
+          </div>
+
+          {/* Content area */}
+          <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+            {mobileTab !== "add"
+              ? <ChatPanel {...chatProps} />
+              : (
+                <div style={{ height: "100%", overflowY: "auto", background: "var(--bg-surface)" }}>
+                  <IngestionPanel {...ingestProps} />
+                </div>
+              )
+            }
+          </div>
+
+          {/* Bottom tab bar — Chat + Add only */}
           <div style={{
             display: "flex",
             borderTop: "1px solid var(--border)",
@@ -185,24 +237,17 @@ export default function Home() {
             flexShrink: 0,
           }}>
             {([
-              { id: "chat",    icon: "💬", label: "Chat" },
-              { id: "add",     icon: "＋", label: "Add" },
-              { id: "library", icon: "◈",  label: "Library" },
+              { id: "chat", icon: "💬", label: "Chat" },
+              { id: "add",  icon: "＋", label: "Add" },
             ] as const).map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setMobileTab(tab.id)}
                 style={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "3px",
-                  padding: "12px 0",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
+                  flex: 1, display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center",
+                  gap: "3px", padding: "12px 0",
+                  border: "none", background: "transparent", cursor: "pointer",
                   color: mobileTab === tab.id ? "var(--amber)" : "var(--text-muted)",
                   transition: "color 0.15s",
                 }}
