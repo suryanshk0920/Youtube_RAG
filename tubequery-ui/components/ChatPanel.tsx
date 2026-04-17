@@ -49,6 +49,9 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _, messages,
     const controller = new AbortController()
     abortRef.current = controller
 
+    // Track citations separately so we can save them all at once on done
+    const collectedCitations: Citation[] = []
+
     await streamChat(
       question.trim(), activeKb, history,
       {
@@ -59,15 +62,17 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _, messages,
           ))
         },
         onCitation: (citation: Citation) => {
+          collectedCitations.push(citation)
+          // Also update live so chip appears as soon as it arrives
           const latest = messagesRef.current
           onMessagesChange(latest.map(m =>
-            m.id === assistantId ? { ...m, citations: [...(m.citations ?? []), citation] } : m
+            m.id === assistantId ? { ...m, citations: [...collectedCitations] } : m
           ))
         },
         onDone: () => {
           const latest = messagesRef.current
           onMessagesChange(latest.map(m =>
-            m.id === assistantId ? { ...m, isStreaming: false } : m
+            m.id === assistantId ? { ...m, isStreaming: false, citations: [...collectedCitations] } : m
           ))
           setIsStreaming(false)
         },
