@@ -223,3 +223,26 @@ export async function deleteDBSession(session_id: string): Promise<void> {
     headers: await authHeaders(),
   })
 }
+
+// ── Profile ──────────────────────────────────────────────────────────
+
+export interface UserProfile {
+  uid: string
+  email: string
+  display_name: string
+  photo_url: string
+  plan: "free" | "pro" | "team"
+  created_at: string
+  usage: {
+    ingest: { used: number; limit: number }
+    chat:   { used: number; limit: number }
+  }
+}
+
+export async function fetchProfile(): Promise<UserProfile | null> {
+  try {
+    const res = await fetch(`${BASE}/profile`, { headers: await authHeaders() })
+    if (!res.ok) return null
+    return res.json()
+  } catch { return null }
+}

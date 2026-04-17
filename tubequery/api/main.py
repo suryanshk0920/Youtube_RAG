@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.routers import chat, ingest, sources
 from api.routers import sessions
+from api.routers import profile
 from api.schemas import HealthResponse
 import config
 
@@ -55,6 +56,7 @@ app.include_router(ingest.router)
 app.include_router(chat.router)
 app.include_router(sources.router)
 app.include_router(sessions.router)
+app.include_router(profile.router)
 
 
 # ── Health check ─────────────────────────────────────────────────────

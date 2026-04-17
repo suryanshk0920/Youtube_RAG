@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import { useAuth } from "@/context/AuthContext"
 import type { ChatSession } from "@/types"
 
 const KBS = ["default", "health", "tech", "finance"]
@@ -17,6 +18,7 @@ interface Props {
 
 export function Sidebar({ activeKb, activeSourceId, chunkCounts, sessions, onKbChange, onSelectSession, onDeleteSession }: Props) {
   const [hoveredSession, setHoveredSession] = useState<string | null>(null)
+  const { user } = useAuth()
 
   // Group sessions by KB, sorted newest first
   const sessionList = Object.values(sessions).sort(
@@ -150,10 +152,22 @@ export function Sidebar({ activeKb, activeSourceId, chunkCounts, sessions, onKbC
 
       {/* Footer */}
       <div style={{ padding: "16px 12px 0", borderTop: "1px solid var(--border)", marginTop: "8px" }}>
-        <p style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontFamily: "var(--font-dm-mono), monospace", lineHeight: 1.6, margin: 0 }}>
-          embeddings run locally<br />
-          llm via openrouter
-        </p>
+        <a
+          href="/profile"
+          style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", textDecoration: "none", cursor: "pointer" }}
+        >
+          <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "var(--amber-dim)", border: "1px solid var(--border-warm)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 700, color: "var(--amber)", fontFamily: "var(--font-syne), sans-serif", flexShrink: 0 }}>
+            {(user?.displayName || user?.email || "?")[0]?.toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: "0.78rem", color: "var(--text-primary)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {user?.displayName || user?.email?.split("@")[0] || "Account"}
+            </p>
+            <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", margin: 0, fontFamily: "var(--font-dm-mono), monospace" }}>
+              View profile →
+            </p>
+          </div>
+        </a>
       </div>
     </div>
   )
