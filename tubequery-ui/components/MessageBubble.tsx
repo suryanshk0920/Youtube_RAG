@@ -3,9 +3,20 @@ import ReactMarkdown from "react-markdown"
 import { CitationChip } from "./CitationChip"
 import type { Message } from "@/types"
 
-function TypingCursor() {
+function StreamingCursor() {
   return (
-    <span className="inline-block w-0.5 h-4 bg-violet-400 ml-0.5 animate-pulse align-middle" />
+    <span
+      className="animate-pulse-amber"
+      style={{
+        display: "inline-block",
+        width: "2px",
+        height: "14px",
+        background: "var(--amber)",
+        borderRadius: "1px",
+        marginLeft: "2px",
+        verticalAlign: "middle",
+      }}
+    />
   )
 }
 
@@ -14,10 +25,17 @@ export function MessageBubble({ message }: { message: Message }) {
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-4">
-        <div className="max-w-[75%] px-4 py-3 rounded-2xl rounded-tr-sm
-          bg-gradient-to-br from-violet-600 to-indigo-600
-          text-white text-sm leading-relaxed shadow-lg">
+      <div className="animate-fade-up" style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+        <div style={{
+          maxWidth: "72%",
+          padding: "10px 16px",
+          borderRadius: "16px 16px 4px 16px",
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border)",
+          fontSize: "0.875rem",
+          lineHeight: 1.65,
+          color: "var(--text-primary)",
+        }}>
           {message.content}
         </div>
       </div>
@@ -25,27 +43,38 @@ export function MessageBubble({ message }: { message: Message }) {
   }
 
   return (
-    <div className="flex gap-3 mb-6">
+    <div className="animate-fade-up" style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
       {/* Avatar */}
-      <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500
-        flex items-center justify-center text-xs font-bold text-white shadow-md mt-1">
-        T
+      <div style={{
+        flexShrink: 0,
+        width: "26px",
+        height: "26px",
+        borderRadius: "8px",
+        background: "var(--amber-dim)",
+        border: "1px solid var(--border-warm)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        marginTop: "2px",
+        fontFamily: "'Syne', sans-serif",
+        fontWeight: 700,
+        fontSize: "0.65rem",
+        color: "var(--amber)",
+        letterSpacing: "-0.02em",
+      }}>
+        TQ
       </div>
 
-      <div className="flex-1 min-w-0">
-        {/* Answer text */}
-        <div className="prose prose-invert prose-sm max-w-none
-          text-white/90 leading-relaxed
-          prose-p:my-2 prose-ul:my-2 prose-li:my-0.5
-          prose-strong:text-white prose-strong:font-semibold
-          prose-headings:text-white prose-headings:font-semibold">
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Markdown content */}
+        <div className="tq-prose" style={{ fontSize: "0.875rem" }}>
           <ReactMarkdown>{message.content}</ReactMarkdown>
-          {message.isStreaming && <TypingCursor />}
+          {message.isStreaming && <StreamingCursor />}
         </div>
 
         {/* Citations */}
         {message.citations && message.citations.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3">
+          <div className="animate-fade-in" style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "12px" }}>
             {message.citations.map((c, i) => (
               <CitationChip key={i} citation={c} />
             ))}

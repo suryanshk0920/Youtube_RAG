@@ -15,41 +15,28 @@ export default function Home() {
   const loadSources = useCallback(async () => {
     try {
       const all = await getSources()
-      setSources(all.filter((s) => s.kb_id === activeKb))
-
-      // Compute chunk counts per KB
+      setSources(all.filter(s => s.kb_id === activeKb))
       const counts: Record<string, number> = {}
-      for (const s of all) {
-        counts[s.kb_id] = (counts[s.kb_id] ?? 0) + s.chunk_count
-      }
+      for (const s of all) counts[s.kb_id] = (counts[s.kb_id] ?? 0) + s.chunk_count
       setChunkCounts(counts)
-    } catch {
-      // API not reachable yet
-    }
+    } catch { /* API not ready */ }
   }, [activeKb])
 
-  useEffect(() => {
-    loadSources()
-  }, [loadSources])
-
-  function handleKbChange(kb: string) {
-    setActiveKb(kb)
-    setPendingIntro(null)
-  }
+  useEffect(() => { loadSources() }, [loadSources])
 
   return (
-    <div className="flex h-screen bg-[#0a0a0f] text-white overflow-hidden">
+    <div style={{ display: "flex", height: "100vh", background: "var(--bg-base)", overflow: "hidden" }}>
       {/* Sidebar */}
-      <div className="w-52 flex-shrink-0 border-r border-white/5 bg-white/[0.02]">
+      <div style={{ width: "200px", flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--bg-surface)" }}>
         <Sidebar
           activeKb={activeKb}
           chunkCounts={chunkCounts}
-          onKbChange={handleKbChange}
+          onKbChange={kb => { setActiveKb(kb); setPendingIntro(null) }}
         />
       </div>
 
-      {/* Chat */}
-      <div className="flex-1 min-w-0">
+      {/* Chat — main area */}
+      <div style={{ flex: 1, minWidth: 0 }}>
         <ChatPanel
           activeKb={activeKb}
           pendingIntro={pendingIntro}
@@ -57,15 +44,13 @@ export default function Home() {
         />
       </div>
 
-      {/* Ingestion panel */}
-      <div className="w-72 flex-shrink-0 border-l border-white/5 bg-white/[0.02]">
+      {/* Right panel — ingestion */}
+      <div style={{ width: "280px", flexShrink: 0, borderLeft: "1px solid var(--border)", background: "var(--bg-surface)" }}>
         <IngestionPanel
           sources={sources}
           activeKb={activeKb}
           onSourcesChange={loadSources}
-          onIntroReady={(intro) => {
-            setPendingIntro(intro)
-          }}
+          onIntroReady={intro => setPendingIntro(intro)}
         />
       </div>
     </div>

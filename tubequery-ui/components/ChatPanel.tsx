@@ -1,6 +1,5 @@
 "use client"
 import { useEffect, useRef, useState } from "react"
-import { Send, Square } from "lucide-react"
 import { streamChat } from "@/lib/api"
 import { IntroCard } from "./IntroCard"
 import { MessageBubble } from "./MessageBubble"
@@ -12,7 +11,7 @@ interface Props {
   onIntroDismiss: () => void
 }
 
-export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss }: Props) {
+export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _ }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
@@ -20,12 +19,10 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss }: Props) {
   const abortRef = useRef<AbortController | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Auto-scroll on new content
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Auto-resize textarea
   useEffect(() => {
     const ta = textareaRef.current
     if (!ta) return
@@ -33,78 +30,32 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss }: Props) {
     ta.style.height = Math.min(ta.scrollHeight, 160) + "px"
   }, [input])
 
+  // Reset messages when KB changes
+  useEffect(() => {
+    setMessages([])
+  }, [activeKb])
+
   async function sendMessage(question: string) {
     if (!question.trim() || isStreaming) return
-    // Don't dismiss intro — keep it visible above the chat
 
-    const userMsg: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: question.trim(),
-    }
-
+    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: question.trim() }
     const assistantId = crypto.randomUUID()
-    const assistantMsg: Message = {
-      id: assistantId,
-      role: "assistant",
-      content: "",
-      citations: [],
-      isStreaming: true,
-    }
+    const assistantMsg: Message = { id: assistantId, role: "assistant", content: "", citations: [], isStreaming: true }
 
-    setMessages((prev) => [...prev, userMsg, assistantMsg])
+    setMessages(prev => [...prev, userMsg, assistantMsg])
     setInput("")
     setIsStreaming(true)
 
     const controller = new AbortController()
     abortRef.current = controller
 
-    const history = messages.map((m) => ({
-      ...m,
-      id: m.id,
-    }))
-
     await streamChat(
-      question.trim(),
-      activeKb,
-      history,
+      question.trim(), activeKb, messages,
       {
-        onToken: (token) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: m.content + token }
-                : m
-            )
-          )
-        },
-        onCitation: (citation: Citation) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, citations: [...(m.citations ?? []), citation] }
-                : m
-            )
-          )
-        },
-        onDone: () => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, isStreaming: false } : m
-            )
-          )
-          setIsStreaming(false)
-        },
-        onError: (err) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: `Error: ${err}`, isStreaming: false }
-                : m
-            )
-          )
-          setIsStreaming(false)
-        },
+        onToken: token => setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: m.content + token } : m)),
+        onCitation: (citation: Citation) => setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, citations: [...(m.citations ?? []), citation] } : m)),
+        onDone: () => { setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m)); setIsStreaming(false) },
+        onError: err => { setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: `Error: ${err}`, isStreaming: false } : m)); setIsStreaming(false) },
       },
       controller.signal
     )
@@ -112,83 +63,113 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss }: Props) {
 
   function stopStream() {
     abortRef.current?.abort()
-    setMessages((prev) =>
-      prev.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m))
-    )
+    setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
     setIsStreaming(false)
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-1">
-        {/* Intro card — always visible when set, pinned at top */}
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {/* Messages area */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px 16px" }}>
+        {/* Intro card */}
         {pendingIntro && (
-          <IntroCard
-            intro={pendingIntro}
-            onQuestionSelect={(q) => sendMessage(q)}
-          />
+          <IntroCard intro={pendingIntro} onQuestionSelect={q => sendMessage(q)} />
         )}
 
-        {/* Empty state — only when no intro and no messages */}
+        {/* Empty state */}
         {!pendingIntro && messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center py-20">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500
-              flex items-center justify-center text-2xl font-bold text-white mb-4 shadow-xl">
-              T
+          <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center", paddingBottom: "60px" }}>
+            <div style={{
+              width: "52px", height: "52px", borderRadius: "14px",
+              background: "var(--amber-dim)", border: "1px solid var(--border-warm)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "1rem",
+              color: "var(--amber)", marginBottom: "20px",
+              boxShadow: "0 0 40px rgba(245,158,11,0.1)",
+            }}>
+              TQ
             </div>
-            <h2 className="text-xl font-semibold text-white mb-2">TubeQuery</h2>
-            <p className="text-white/40 text-sm max-w-xs">
-              Ingest a YouTube video on the right, then ask anything about it.
+            <p style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", marginBottom: "8px", letterSpacing: "-0.02em" }}>
+              TubeQuery
+            </p>
+            <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", maxWidth: "260px", lineHeight: 1.6 }}>
+              Ingest a YouTube video on the right, then ask anything about its content.
             </p>
           </div>
         )}
 
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
-
+        {messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <div className="px-6 pb-6 pt-2">
-        <div className="flex items-end gap-3 p-3 rounded-2xl
-          bg-white/5 border border-white/10
-          focus-within:border-violet-500/40 focus-within:bg-white/8
-          transition-all duration-200">
+      <div style={{ padding: "12px 32px 24px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            gap: "10px",
+            padding: "12px 14px",
+            borderRadius: "14px",
+            border: "1px solid var(--border)",
+            background: "var(--bg-elevated)",
+            transition: "border-color 0.18s, box-shadow 0.18s",
+          }}
+          onFocusCapture={e => {
+            const el = e.currentTarget as HTMLElement
+            el.style.borderColor = "rgba(245,158,11,0.3)"
+            el.style.boxShadow = "0 0 0 3px rgba(245,158,11,0.05)"
+          }}
+          onBlurCapture={e => {
+            const el = e.currentTarget as HTMLElement
+            el.style.borderColor = "var(--border)"
+            el.style.boxShadow = "none"
+          }}
+        >
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault()
-                sendMessage(input)
-              }
-            }}
-            placeholder="Ask anything about your videos..."
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input) } }}
+            placeholder="Ask anything about your videos…"
             rows={1}
-            className="flex-1 bg-transparent text-sm text-white placeholder-white/30
-              resize-none focus:outline-none leading-relaxed"
+            style={{
+              flex: 1,
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              resize: "none",
+              fontSize: "0.875rem",
+              color: "var(--text-primary)",
+              fontFamily: "'DM Sans', sans-serif",
+              lineHeight: 1.6,
+            }}
           />
           <button
             onClick={isStreaming ? stopStream : () => sendMessage(input)}
             disabled={!isStreaming && !input.trim()}
-            className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center
-              bg-gradient-to-br from-violet-600 to-indigo-600 text-white
-              hover:from-violet-500 hover:to-indigo-500
-              disabled:opacity-30 disabled:cursor-not-allowed
-              transition-all duration-200 shadow-lg shadow-violet-500/25"
+            style={{
+              flexShrink: 0,
+              width: "32px",
+              height: "32px",
+              borderRadius: "9px",
+              border: "1px solid var(--border-warm)",
+              background: isStreaming ? "rgba(248,113,113,0.1)" : "var(--amber-dim)",
+              color: isStreaming ? "#fca5a5" : "var(--amber)",
+              cursor: (!isStreaming && !input.trim()) ? "not-allowed" : "pointer",
+              opacity: (!isStreaming && !input.trim()) ? 0.3 : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "0.75rem",
+              transition: "all 0.18s",
+            }}
           >
-            {isStreaming
-              ? <Square className="w-3.5 h-3.5 fill-current" />
-              : <Send className="w-3.5 h-3.5" />
-            }
+            {isStreaming ? "■" : "↑"}
           </button>
         </div>
-        <p className="text-center text-xs text-white/20 mt-2">
-          Enter to send · Shift+Enter for new line
+        <p style={{ textAlign: "center", fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "8px", fontFamily: "'DM Mono', monospace" }}>
+          enter to send · shift+enter for newline
         </p>
       </div>
     </div>

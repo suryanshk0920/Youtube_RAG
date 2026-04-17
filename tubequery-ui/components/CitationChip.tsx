@@ -1,24 +1,45 @@
 "use client"
-import { Play } from "lucide-react"
 import type { Citation } from "@/types"
 
 export function CitationChip({ citation }: { citation: Citation }) {
+  const shortTitle = citation.video_title.length > 28
+    ? citation.video_title.slice(0, 28) + "…"
+    : citation.video_title
+
   return (
     <a
       href={citation.youtube_url}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium
-        bg-white/5 border border-white/10 text-white/70
-        hover:bg-violet-500/20 hover:border-violet-500/40 hover:text-white
-        transition-all duration-200 group"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "4px 10px 4px 8px",
+        borderRadius: "6px",
+        border: "1px solid var(--border-warm)",
+        background: "var(--amber-glow)",
+        textDecoration: "none",
+        transition: "all 0.18s ease",
+        cursor: "pointer",
+      }}
+      onMouseEnter={e => {
+        const el = e.currentTarget as HTMLElement
+        el.style.background = "var(--amber-dim)"
+        el.style.borderColor = "rgba(245,158,11,0.35)"
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLElement
+        el.style.background = "var(--amber-glow)"
+        el.style.borderColor = "var(--border-warm)"
+      }}
     >
-      <Play className="w-3 h-3 fill-current text-violet-400 group-hover:text-violet-300" />
-      <span>{citation.video_title.length > 30
-        ? citation.video_title.slice(0, 30) + "…"
-        : citation.video_title}
+      {/* Play triangle */}
+      <span style={{ color: "var(--amber)", fontSize: "0.55rem", lineHeight: 1 }}>▶</span>
+      <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontFamily: "'DM Sans', sans-serif" }}>
+        {shortTitle}
       </span>
-      <span className="text-violet-400 group-hover:text-violet-300 font-mono">
+      <span style={{ fontSize: "0.68rem", color: "var(--amber)", fontFamily: "'DM Mono', monospace", fontWeight: 500 }}>
         {citation.timestamp_label}
       </span>
     </a>

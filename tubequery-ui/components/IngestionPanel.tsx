@@ -1,6 +1,5 @@
 "use client"
 import { useState } from "react"
-import { Plus, Trash2, Video, Loader2, ChevronDown } from "lucide-react"
 import { deleteSource, getIntro, ingestUrl } from "@/lib/api"
 import type { IntroData, Source } from "@/types"
 
@@ -9,6 +8,15 @@ interface Props {
   activeKb: string
   onSourcesChange: () => void
   onIntroReady: (intro: IntroData) => void
+}
+
+function Spinner() {
+  return (
+    <svg className="animate-spin-slow" width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.2" />
+      <path d="M7 1.5A5.5 5.5 0 0 1 12.5 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
 }
 
 export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroReady }: Props) {
@@ -24,10 +32,9 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
     setStatus(null)
     try {
       const result = await ingestUrl(url.trim(), activeKb)
-      setStatus({ type: "success", msg: `✓ ${result.chunk_count} chunks indexed` })
+      setStatus({ type: "success", msg: `${result.chunk_count} chunks indexed` })
       setUrl("")
       onSourcesChange()
-      // Auto-generate intro
       const intro = await getIntro(result.source_id)
       onIntroReady(intro)
     } catch (e: unknown) {
@@ -41,86 +48,131 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
     try {
       await deleteSource(source.id, source.kb_id)
       onSourcesChange()
-    } catch {
-      // silent
-    }
+    } catch { /* silent */ }
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Header */}
-      <div className="px-5 pt-5 pb-4 border-b border-white/5">
-        <h2 className="text-sm font-semibold text-white/80">Add Content</h2>
-        <p className="text-xs text-white/40 mt-0.5">Paste a YouTube URL to ingest</p>
+      <div style={{ padding: "22px 20px 16px", borderBottom: "1px solid var(--border)" }}>
+        <p style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
+          Add Content
+        </p>
+        <p style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "2px" }}>
+          Paste a YouTube URL
+        </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-        {/* URL input */}
-        <div className="space-y-2">
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+        {/* Input area */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <input
             type="text"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleIngest()}
-            placeholder="https://youtube.com/watch?v=..."
-            className="w-full px-3 py-2.5 rounded-xl text-sm
-              bg-white/5 border border-white/10 text-white placeholder-white/30
-              focus:outline-none focus:border-violet-500/50 focus:bg-white/8
-              transition-all duration-200"
+            onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleIngest()}
+            placeholder="youtube.com/watch?v=..."
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: "10px",
+              border: "1px solid var(--border)",
+              background: "var(--bg-elevated)",
+              color: "var(--text-primary)",
+              fontSize: "0.8rem",
+              outline: "none",
+              transition: "border-color 0.18s",
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+            onFocus={e => (e.target.style.borderColor = "rgba(245,158,11,0.4)")}
+            onBlur={e => (e.target.style.borderColor = "var(--border)")}
           />
+
           <button
             onClick={handleIngest}
             disabled={loading || !url.trim()}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium
-              bg-gradient-to-r from-violet-600 to-indigo-600 text-white
-              hover:from-violet-500 hover:to-indigo-500
-              disabled:opacity-40 disabled:cursor-not-allowed
-              transition-all duration-200 shadow-lg shadow-violet-500/20"
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "10px",
+              border: "1px solid var(--border-warm)",
+              background: loading ? "var(--amber-dim)" : "var(--amber-dim)",
+              color: "var(--amber)",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              fontFamily: "'Syne', sans-serif",
+              cursor: loading || !url.trim() ? "not-allowed" : "pointer",
+              opacity: !url.trim() && !loading ? 0.4 : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "7px",
+              transition: "all 0.18s ease",
+              letterSpacing: "0.02em",
+            }}
+            onMouseEnter={e => { if (!loading && url.trim()) (e.currentTarget as HTMLElement).style.background = "rgba(245,158,11,0.18)" }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "var(--amber-dim)" }}
           >
-            {loading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Ingesting...</>
-            ) : (
-              <><Plus className="w-4 h-4" /> Ingest</>
-            )}
+            {loading ? <><Spinner /> Ingesting…</> : "↑ Ingest"}
           </button>
 
           {status && (
-            <p className={`text-xs px-3 py-2 rounded-lg ${
-              status.type === "success"
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                : "bg-red-500/10 text-red-400 border border-red-500/20"
-            }`}>
-              {status.msg}
-            </p>
+            <div
+              className="animate-fade-in"
+              style={{
+                padding: "8px 12px",
+                borderRadius: "8px",
+                fontSize: "0.75rem",
+                border: `1px solid ${status.type === "success" ? "rgba(52,211,153,0.2)" : "rgba(248,113,113,0.2)"}`,
+                background: status.type === "success" ? "rgba(52,211,153,0.06)" : "rgba(248,113,113,0.06)",
+                color: status.type === "success" ? "#6ee7b7" : "#fca5a5",
+              }}
+            >
+              {status.type === "success" ? "✓ " : "✕ "}{status.msg}
+            </div>
           )}
         </div>
 
-        {/* Sources list */}
+        {/* Sources */}
         {sources.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-2">
+            <p style={{ fontSize: "0.65rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "8px" }}>
               Ingested · {sources.length}
             </p>
-            <div className="space-y-2">
-              {sources.map((s) => (
-                <div key={s.id} className="rounded-xl border border-white/8 bg-white/3 overflow-hidden">
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              {sources.map(s => (
+                <div
+                  key={s.id}
+                  className="animate-fade-up"
+                  style={{ borderRadius: "10px", border: "1px solid var(--border)", background: "var(--bg-surface)", overflow: "hidden" }}
+                >
                   <button
                     onClick={() => setExpanded(expanded === s.id ? null : s.id)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-white/5 transition-colors"
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: "8px",
+                      padding: "10px 12px", background: "transparent", border: "none",
+                      cursor: "pointer", textAlign: "left", transition: "background 0.15s",
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)"}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
                   >
-                    <Video className="w-4 h-4 text-violet-400 flex-shrink-0" />
-                    <span className="flex-1 text-sm text-white/80 truncate">{s.title}</span>
-                    <ChevronDown className={`w-3.5 h-3.5 text-white/30 transition-transform ${expanded === s.id ? "rotate-180" : ""}`} />
+                    <span style={{ color: "var(--amber)", fontSize: "0.6rem", flexShrink: 0 }}>▶</span>
+                    <span style={{ flex: 1, fontSize: "0.78rem", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {s.title}
+                    </span>
+                    <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", transition: "transform 0.2s", transform: expanded === s.id ? "rotate(180deg)" : "rotate(0deg)", display: "inline-block" }}>
+                      ▾
+                    </span>
                   </button>
 
                   {expanded === s.id && (
-                    <div className="px-3 pb-3 border-t border-white/5 pt-2 space-y-2">
-                      <div className="flex gap-3 text-xs text-white/50">
-                        <span>{s.video_count} video{s.video_count !== 1 ? "s" : ""}</span>
+                    <div className="animate-fade-in" style={{ padding: "0 12px 12px", borderTop: "1px solid var(--border)" }}>
+                      <div style={{ display: "flex", gap: "12px", padding: "8px 0", fontSize: "0.7rem", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>
+                        <span>{s.video_count}v</span>
                         <span>·</span>
                         <span>{s.chunk_count} chunks</span>
                       </div>
-                      <div className="flex gap-2">
+                      <div style={{ display: "flex", gap: "6px" }}>
                         <button
                           onClick={async () => {
                             setSummaryLoadingId(s.id)
@@ -132,22 +184,31 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
                             }
                           }}
                           disabled={summaryLoadingId === s.id}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium
-                            bg-violet-500/15 text-violet-300 border border-violet-500/20
-                            hover:bg-violet-500/25 disabled:opacity-50 transition-colors"
+                          style={{
+                            flex: 1, padding: "7px", borderRadius: "7px",
+                            border: "1px solid var(--border-warm)", background: "var(--amber-glow)",
+                            color: "var(--amber)", fontSize: "0.72rem", fontWeight: 600,
+                            cursor: summaryLoadingId === s.id ? "not-allowed" : "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
+                            opacity: summaryLoadingId === s.id ? 0.6 : 1,
+                            transition: "all 0.15s",
+                            fontFamily: "'Syne', sans-serif",
+                          }}
                         >
-                          {summaryLoadingId === s.id
-                            ? <><Loader2 className="w-3 h-3 animate-spin" /> Loading...</>
-                            : <>✨ Summary</>
-                          }
+                          {summaryLoadingId === s.id ? <><Spinner /> Loading</> : "✦ Summary"}
                         </button>
                         <button
                           onClick={() => handleDelete(s)}
-                          className="p-1.5 rounded-lg text-xs
-                            bg-red-500/10 text-red-400 border border-red-500/20
-                            hover:bg-red-500/20 transition-colors"
+                          style={{
+                            padding: "7px 10px", borderRadius: "7px",
+                            border: "1px solid rgba(248,113,113,0.15)", background: "rgba(248,113,113,0.05)",
+                            color: "rgba(248,113,113,0.7)", fontSize: "0.72rem",
+                            cursor: "pointer", transition: "all 0.15s",
+                          }}
+                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(248,113,113,0.12)"}
+                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(248,113,113,0.05)"}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          ✕
                         </button>
                       </div>
                     </div>
@@ -159,8 +220,8 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
         )}
 
         {sources.length === 0 && !loading && (
-          <div className="text-center py-8 text-white/25 text-sm">
-            <Video className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-muted)", fontSize: "0.78rem" }}>
+            <div style={{ fontSize: "1.5rem", marginBottom: "8px", opacity: 0.3 }}>◈</div>
             No videos yet
           </div>
         )}
