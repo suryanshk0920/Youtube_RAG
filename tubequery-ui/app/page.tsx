@@ -82,7 +82,9 @@ export default function Home() {
       createdAt: new Date().toISOString(),
     }
     setSessions(prev => ({ ...prev, [sourceId]: { ...session, messages } }))
-    if (existing?.dbId) {
+    // Only save to Supabase when streaming is complete (no isStreaming messages)
+    const isStillStreaming = messages.some(m => m.isStreaming)
+    if (!isStillStreaming && existing?.dbId) {
       updateDBSession(existing.dbId, messages).catch(e => console.warn("Session save failed:", e))
     }
   }

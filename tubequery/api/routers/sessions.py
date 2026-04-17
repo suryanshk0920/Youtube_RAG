@@ -61,9 +61,6 @@ def patch_session(
     db: Any = Depends(get_supabase),
 ):
     """Update messages in a session."""
-    existing = get_session(db, session_id, user["uid"])
-    if not existing:
-        raise HTTPException(status_code=404, detail="Session not found")
     return update_session_messages(db, session_id, user["uid"], body.messages)
 
 
