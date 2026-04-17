@@ -72,9 +72,9 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, onIntroDismi
         },
         onDone: () => {
           const latest = messagesRef.current
-          // Strip SOURCES block from the complete answer before saving
+          // Strip SOURCES block from the end of the complete answer
           const stripSources = (text: string) =>
-            text.replace(/\n*SOURCES:\s*\n(?:[\s\S]*?)(?=\n\n|$)/i, "").trim()
+            text.replace(/\n*SOURCES:[\s\S]*$/i, "").trim()
           onMessagesChange(latest.map(m =>
             m.id === assistantId
               ? { ...m, isStreaming: false, citations: [...collectedCitations], content: stripSources(m.content) }
