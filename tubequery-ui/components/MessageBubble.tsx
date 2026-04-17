@@ -66,14 +66,14 @@ export function MessageBubble({ message }: { message: Message }) {
   }
 
   return (
-    <div className="animate-fade-up" style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
+    <div className="animate-fade-up" style={{ display: "flex", gap: "10px", marginBottom: "24px" }}>
       {/* Avatar */}
       <div style={{
-        flexShrink: 0, width: "26px", height: "26px", borderRadius: "8px",
+        flexShrink: 0, width: "24px", height: "24px", borderRadius: "7px",
         background: "var(--amber-dim)", border: "1px solid var(--border-warm)",
         display: "flex", alignItems: "center", justifyContent: "center",
         marginTop: "2px", fontFamily: "var(--font-syne), sans-serif",
-        fontWeight: 700, fontSize: "0.75rem", color: "var(--amber)",
+        fontWeight: 700, fontSize: "0.65rem", color: "var(--amber)",
       }}>
         TQ
       </div>

@@ -97,8 +97,8 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _, messages,
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Messages area */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "28px 0 16px" }}>
-        <div style={{ maxWidth: "780px", margin: "0 auto", padding: "0 32px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px 0 16px" }}>
+        <div style={{ maxWidth: "780px", margin: "0 auto", padding: "0 16px" }}>
 
           {pendingIntro && (
             <IntroCard intro={pendingIntro} onQuestionSelect={q => sendMessage(q)} />
@@ -132,7 +132,7 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _, messages,
 
       {/* Input */}
       <div style={{ padding: "12px 0 24px" }}>
-        <div style={{ maxWidth: "780px", margin: "0 auto", padding: "0 32px" }}>
+        <div style={{ maxWidth: "780px", margin: "0 auto", padding: "0 16px" }}>
           <div
             style={{
               display: "flex", alignItems: "flex-end", gap: "10px",
