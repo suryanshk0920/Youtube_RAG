@@ -112,49 +112,55 @@ export async function streamChat(
   callbacks: StreamCallbacks,
   signal?: AbortSignal
 ): Promise<void> {
-  const res = await fetch(`${BASE}/chat/stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      question,
-      kb_id,
-      history: history.map((m) => ({ role: m.role, content: m.content })),
-    }),
-    signal,
-  })
+  try {
+    const res = await fetch(`${BASE}/chat/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question,
+        kb_id,
+        history: history.map((m) => ({ role: m.role, content: m.content })),
+      }),
+      signal,
+    })
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Stream failed" }))
-    callbacks.onError(err.detail || "Stream failed")
-    return
-  }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Stream failed" }))
+      callbacks.onError(err.detail || "Stream failed")
+      return
+    }
 
-  const reader = res.body!.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ""
+    const reader = res.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split("\n")
-    buffer = lines.pop() ?? ""
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() ?? ""
 
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue
-      const data = line.slice(6).trim()
-      if (!data || data === "[DONE]") continue
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue
+        const data = line.slice(6).trim()
+        if (!data || data === "[DONE]") continue
 
-      try {
-        const event = JSON.parse(data)
-        if (event.type === "token") callbacks.onToken(event.content)
-        else if (event.type === "citation") callbacks.onCitation(event.content)
-        else if (event.type === "done") callbacks.onDone()
-        else if (event.type === "error") callbacks.onError(event.content)
-      } catch {
-        // malformed chunk — skip
+        try {
+          const event = JSON.parse(data)
+          if (event.type === "token") callbacks.onToken(event.content)
+          else if (event.type === "citation") callbacks.onCitation(event.content)
+          else if (event.type === "done") callbacks.onDone()
+          else if (event.type === "error") callbacks.onError(event.content)
+        } catch {
+          // malformed chunk — skip
+        }
       }
     }
+  } catch (err: unknown) {
+    // AbortError is expected when user stops the stream — not a real error
+    if (err instanceof Error && err.name === "AbortError") return
+    callbacks.onError(err instanceof Error ? err.message : "Stream failed")
   }
 }
