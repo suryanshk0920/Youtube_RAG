@@ -108,6 +108,8 @@ def chat_stream(
                 full_text += token
                 yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
 
+            logger.info("Stream complete. Full response length: %d chars. First 200: %s", len(full_text), full_text[:200])
+
             # After streaming, build citations from the full response
             # Pass full_text WITH the SOURCES block so _filter_citations can parse it
             import re
