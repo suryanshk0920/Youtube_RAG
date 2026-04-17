@@ -92,6 +92,9 @@ def chat_stream(
                 (chunk, score) for chunk, score in results
                 if score >= config.MIN_RELEVANCE_SCORE
             ]
+            logger.info("After relevance filter (threshold=%.2f): %d chunks. Scores: %s",
+                        config.MIN_RELEVANCE_SCORE, len(relevant_chunks),
+                        [round(s, 3) for _, s in results[:5]])
 
             if not relevant_chunks:
                 yield f"data: {json.dumps({'type': 'token', 'content': 'I could not find relevant information in the ingested videos.'})}\n\n"
