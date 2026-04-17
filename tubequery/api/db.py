@@ -21,12 +21,12 @@ def upsert_user(db: Any, user_id: str, email: str | None = None) -> dict:
     if email:
         data["email"] = email
     result = db.table("user_profiles").upsert(data, on_conflict="id").execute()
-    return result.data[0] if result.data else {}
+    return result.data[0] if result.data else data
 
 
 def get_user(db: Any, user_id: str) -> dict | None:
-    result = db.table("user_profiles").select("*").eq("id", user_id).single().execute()
-    return result.data
+    result = db.table("user_profiles").select("*").eq("id", user_id).execute()
+    return result.data[0] if result.data else None
 
 
 # ── Knowledge bases ──────────────────────────────────────────────────
@@ -78,8 +78,8 @@ def list_sources(db: Any, user_id: str, kb_id: str | None = None) -> list[dict]:
 
 
 def get_source(db: Any, source_id: str, user_id: str) -> dict | None:
-    result = db.table("sources").select("*").eq("id", source_id).eq("user_id", user_id).single().execute()
-    return result.data
+    result = db.table("sources").select("*").eq("id", source_id).eq("user_id", user_id).execute()
+    return result.data[0] if result.data else None
 
 
 def delete_source(db: Any, source_id: str, user_id: str) -> None:
@@ -105,10 +105,9 @@ def get_session(db: Any, session_id: str, user_id: str) -> dict | None:
         .select("*")
         .eq("id", session_id)
         .eq("user_id", user_id)
-        .single()
         .execute()
     )
-    return result.data
+    return result.data[0] if result.data else None
 
 
 def create_session(db: Any, user_id: str, source_id: str, source_title: str, kb_name: str) -> dict:
