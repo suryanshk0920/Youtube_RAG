@@ -95,19 +95,23 @@ class _TableQuery:
         return self
 
     def _url(self) -> str:
-        params = [f"select={self._select_cols}"]
-        params.extend(self._filters)
+        return f"{self._base}/{self._table}"
+
+    def _params(self) -> dict:
+        params = {"select": self._select_cols}
+        for f in self._filters:
+            # f is like "col=op.value" — split on first =
+            key, val = f.split("=", 1)
+            params[key] = val
         if self._order:
-            params.append(f"order={self._order}")
-        return f"{self._base}/{self._table}?{'&'.join(params)}"
+            params["order"] = self._order
+        return params
 
     def execute(self) -> "_Result":
         headers = dict(self._headers)
         if self._single:
             headers["Accept"] = "application/vnd.pgrst.object+json"
-        if self._count:
-            headers["Prefer"] = f"count={self._count}"
-        resp = _httpx.get(self._url(), headers=headers, timeout=10.0)
+        resp = _httpx.get(self._url(), params=self._params(), headers=headers, timeout=10.0)
         resp.raise_for_status()
         if self._single:
             data = resp.json() if resp.text else None
@@ -170,9 +174,12 @@ class _FilteredWrite:
         return self
 
     def execute(self) -> "_Result":
-        params = "&".join(self._filters)
-        url = f"{self._base}/{self._table}?{params}"
-        resp = _httpx.request(self._method, url, headers=self._headers, json=self._data, timeout=10.0)
+        params = {}
+        for f in self._filters:
+            key, val = f.split("=", 1)
+            params[key] = val
+        url = f"{self._base}/{self._table}"
+        resp = _httpx.request(self._method, url, params=params, headers=self._headers, json=self._data, timeout=10.0)
         resp.raise_for_status()
         data = resp.json() if resp.text else []
         if isinstance(data, dict):

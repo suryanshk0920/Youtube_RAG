@@ -156,8 +156,8 @@ def get_monthly_usage(db: Any, user_id: str, event_type: str) -> int:
     """Count events of a given type in the current calendar month."""
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
-    # Select just the id column and count the rows returned
+    # Use Z suffix instead of +00:00 to avoid URL encoding issues
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
     result = (
         db.table("usage_events")
         .select("id")
