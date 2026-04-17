@@ -109,6 +109,7 @@ def chat_stream(
                 history=history,
             ):
                 full_text += token
+                # Escape the token as JSON to handle newlines/special chars safely
                 yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
 
             logger.info("Stream complete. Full response length: %d chars. First 200: %s", len(full_text), full_text[:200])

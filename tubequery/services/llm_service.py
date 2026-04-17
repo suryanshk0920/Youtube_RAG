@@ -293,17 +293,22 @@ class OpenRouterLLMService(LLMService):
             "POST", self._API_URL, headers=self._headers, json=payload
         ) as response:
             response.raise_for_status()
-            for line in response.iter_lines():
-                if not line or line == "data: [DONE]":
-                    continue
-                if line.startswith("data: "):
-                    try:
-                        chunk_data = _json.loads(line[6:])
-                        delta = chunk_data["choices"][0]["delta"].get("content")
-                        if delta:
-                            yield delta
-                    except Exception:
+            buffer = ""
+            for chunk in response.iter_text():
+                buffer += chunk
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    line = line.strip()
+                    if not line or line == "data: [DONE]":
                         continue
+                    if line.startswith("data: "):
+                        try:
+                            chunk_data = _json.loads(line[6:])
+                            delta = chunk_data["choices"][0]["delta"].get("content")
+                            if delta:
+                                yield delta
+                        except Exception:
+                            continue
 
     def answer(
         self,
