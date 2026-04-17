@@ -32,7 +32,6 @@ export default function Home() {
   // Mobile tab: "chat" | "add" | "library"
   const [mobileTab, setMobileTab] = useState<"chat" | "add" | "library">("chat")
   const isMobile = useIsMobile()
-  const { user } = useAuth()
 
   // Redirect to login if not authenticated
   useEffect(() => {
