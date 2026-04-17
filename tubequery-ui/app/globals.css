@@ -108,30 +108,18 @@ body::before {
 
 /* ── Mobile layout ───────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .sidebar-panel {
-    display: none !important;
-  }
-  .ingest-panel {
-    width: 100% !important;
-    max-width: 100% !important;
-    border-left: none !important;
-    border-top: 1px solid var(--border) !important;
-    max-height: 45vh;
-    overflow-y: auto;
-  }
-  /* Stack vertically on mobile */
-  div[style*="display: flex"][style*="height: 100dvh"] {
-    flex-direction: column !important;
-  }
+  .desktop-layout { display: none !important; }
+  .mobile-layout  { display: flex !important; }
 }
 
-@media (max-width: 1024px) {
-  .sidebar-panel {
-    width: 200px !important;
-  }
-  .ingest-panel {
-    width: 280px !important;
-  }
+@media (min-width: 769px) {
+  .desktop-layout { display: flex !important; }
+  .mobile-layout  { display: none !important; }
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+  .desktop-layout > div:first-child { width: 200px !important; }
+  .desktop-layout > div:last-child  { width: 280px !important; }
 }
 
 /* ── Source card expand animation ────────────────────────────────── */

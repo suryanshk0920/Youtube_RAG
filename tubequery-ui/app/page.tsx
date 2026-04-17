@@ -28,6 +28,8 @@ export default function Home() {
   const [pendingIntro, setPendingIntro] = useState<IntroData | null>(null)
   const [chunkCounts, setChunkCounts] = useState<Record<string, number>>({})
   const [sessions, setSessions] = useState<Record<string, ChatSession>>({})
+  // Mobile tab: "chat" | "add" | "library"
+  const [mobileTab, setMobileTab] = useState<"chat" | "add" | "library">("chat")
 
   useEffect(() => { setSessions(loadSessions()) }, [])
 
@@ -44,14 +46,8 @@ export default function Home() {
 
   useEffect(() => { loadSources() }, [loadSources])
 
-  function getOrCreateSession(sourceId: string, sourceTitle: string, kbId: string): ChatSession {
-    if (sessions[sourceId]) return sessions[sourceId]
-    return { sourceId, sourceTitle, kbId, messages: [], createdAt: new Date().toISOString() }
-  }
-
   function handleMessagesChange(sourceId: string, messages: Message[]) {
     const existing = sessions[sourceId]
-    // Auto-create session if it doesn't exist yet (user chatted without selecting a session)
     const session = existing ?? {
       sourceId,
       sourceTitle: allSources.find(s => s.id === sourceId)?.title ?? sourceId,
@@ -65,11 +61,8 @@ export default function Home() {
   }
 
   function handleIntroReady(intro: IntroData) {
-    // Find the source title
     const source = allSources.find(s => s.id === intro.source_id)
     const title = source?.title ?? intro.source_id
-
-    // Create session if not exists, clear messages for fresh start
     const session: ChatSession = {
       sourceId: intro.source_id,
       sourceTitle: title,
@@ -80,17 +73,17 @@ export default function Home() {
     const updated = { ...sessions, [intro.source_id]: session }
     setSessions(updated)
     saveSessions(updated)
-
     setActiveSourceId(intro.source_id)
     setPendingIntro(intro)
+    setMobileTab("chat") // switch to chat on mobile after ingestion
   }
 
   function handleSelectSession(sourceId: string) {
     setActiveSourceId(sourceId)
     setPendingIntro(null)
-    // Switch KB if needed
     const session = sessions[sourceId]
     if (session && session.kbId !== activeKb) setActiveKb(session.kbId)
+    setMobileTab("chat")
   }
 
   function handleDeleteSession(sourceId: string) {
@@ -108,47 +101,108 @@ export default function Home() {
     setActiveKb(kb)
     setActiveSourceId(null)
     setPendingIntro(null)
+    setMobileTab("chat")
   }
 
   const activeSession = activeSourceId ? sessions[activeSourceId] : null
   const activeMessages = activeSession?.messages ?? []
   const activeKbForChat = activeSession?.kbId ?? activeKb
 
+  const sidebarProps = {
+    activeKb, activeSourceId, chunkCounts, sessions,
+    onKbChange: handleKbChange,
+    onSelectSession: handleSelectSession,
+    onDeleteSession: handleDeleteSession,
+  }
+
+  const chatProps = {
+    activeKb: activeKbForChat,
+    pendingIntro,
+    onIntroDismiss: () => setPendingIntro(null),
+    messages: activeMessages,
+    onMessagesChange: (msgs: Message[]) => activeSourceId && handleMessagesChange(activeSourceId, msgs),
+  }
+
+  const ingestProps = {
+    sources, activeKb,
+    onSourcesChange: loadSources,
+    onIntroReady: handleIntroReady,
+  }
+
   return (
-    <div style={{ display: "flex", height: "100dvh", background: "var(--bg-base)", overflow: "hidden" }}>
-      {/* Sidebar — hidden on mobile */}
-      <div className="sidebar-panel" style={{ width: "240px", flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--bg-surface)" }}>
-        <Sidebar
-          activeKb={activeKb}
-          activeSourceId={activeSourceId}
-          chunkCounts={chunkCounts}
-          sessions={sessions}
-          onKbChange={handleKbChange}
-          onSelectSession={handleSelectSession}
-          onDeleteSession={handleDeleteSession}
-        />
+    <>
+      {/* ── Desktop layout (≥768px) ─────────────────────────────── */}
+      <div className="desktop-layout" style={{ display: "flex", height: "100dvh", background: "var(--bg-base)", overflow: "hidden" }}>
+        <div style={{ width: "240px", flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+          <Sidebar {...sidebarProps} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <ChatPanel {...chatProps} />
+        </div>
+        <div style={{ width: "340px", flexShrink: 0, borderLeft: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+          <IngestionPanel {...ingestProps} />
+        </div>
       </div>
 
-      {/* Chat */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <ChatPanel
-          activeKb={activeKbForChat}
-          pendingIntro={pendingIntro}
-          onIntroDismiss={() => setPendingIntro(null)}
-          messages={activeMessages}
-          onMessagesChange={(msgs) => activeSourceId && handleMessagesChange(activeSourceId, msgs)}
-        />
-      </div>
+      {/* ── Mobile layout (<768px) ──────────────────────────────── */}
+      <div className="mobile-layout" style={{ display: "none", flexDirection: "column", height: "100dvh", background: "var(--bg-base)" }}>
+        {/* Content area */}
+        <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+          {mobileTab === "chat" && <ChatPanel {...chatProps} />}
+          {mobileTab === "add" && (
+            <div style={{ height: "100%", overflowY: "auto", background: "var(--bg-surface)" }}>
+              <IngestionPanel {...ingestProps} />
+            </div>
+          )}
+          {mobileTab === "library" && (
+            <div style={{ height: "100%", overflowY: "auto", background: "var(--bg-surface)" }}>
+              <Sidebar {...sidebarProps} />
+            </div>
+          )}
+        </div>
 
-      {/* Right panel — collapsible on mobile */}
-      <div className="ingest-panel" style={{ width: "340px", flexShrink: 0, borderLeft: "1px solid var(--border)", background: "var(--bg-surface)" }}>
-        <IngestionPanel
-          sources={sources}
-          activeKb={activeKb}
-          onSourcesChange={loadSources}
-          onIntroReady={handleIntroReady}
-        />
+        {/* Bottom tab bar */}
+        <div style={{
+          display: "flex",
+          borderTop: "1px solid var(--border)",
+          background: "var(--bg-surface)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        }}>
+          {([
+            { id: "chat",    icon: "💬", label: "Chat" },
+            { id: "add",     icon: "＋", label: "Add" },
+            { id: "library", icon: "◈",  label: "Library" },
+          ] as const).map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setMobileTab(tab.id)}
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "3px",
+                padding: "10px 0",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: mobileTab === tab.id ? "var(--amber)" : "var(--text-muted)",
+                transition: "color 0.15s",
+              }}
+            >
+              <span style={{ fontSize: "1.1rem", lineHeight: 1 }}>{tab.icon}</span>
+              <span style={{
+                fontSize: "0.65rem",
+                fontFamily: "var(--font-dm-mono), monospace",
+                letterSpacing: "0.05em",
+              }}>
+                {tab.label}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
