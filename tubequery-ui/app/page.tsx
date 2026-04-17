@@ -169,7 +169,7 @@ export default function Home() {
             padding: "10px 16px", borderBottom: "1px solid var(--border)",
             background: "var(--bg-surface)", flexShrink: 0,
           }}>
-            {/* Hamburger — visually distinct */}
+            {/* Hamburger */}
             <button
               onClick={() => setMobileTab(mobileTab === "library" ? "chat" : "library")}
               style={{
@@ -190,10 +190,30 @@ export default function Home() {
             {/* Separator */}
             <div style={{ width: "1px", height: "24px", background: "var(--border)", margin: "0 14px", flexShrink: 0 }} />
 
-            {/* Wordmark */}
-            <p style={{ fontFamily: "var(--font-syne), sans-serif", fontWeight: 800, fontSize: "1.1rem", letterSpacing: "-0.03em", color: "var(--text-primary)", margin: 0 }}>
-              Tube<span style={{ color: "var(--amber)" }}>Query</span>
-            </p>
+            {/* Active session title or wordmark */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {activeSession ? (
+                <>
+                  <p style={{
+                    fontFamily: "var(--font-syne), sans-serif", fontWeight: 600,
+                    fontSize: "0.9rem", color: "var(--text-primary)", margin: 0,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {activeSession.sourceTitle}
+                  </p>
+                  <p style={{
+                    fontSize: "0.65rem", color: "var(--text-muted)", margin: 0,
+                    fontFamily: "var(--font-dm-mono), monospace",
+                  }}>
+                    {activeSession.kbId} · {Math.floor(activeSession.messages.length / 2)} messages
+                  </p>
+                </>
+              ) : (
+                <p style={{ fontFamily: "var(--font-syne), sans-serif", fontWeight: 800, fontSize: "1.1rem", letterSpacing: "-0.03em", color: "var(--text-primary)", margin: 0 }}>
+                  Tube<span style={{ color: "var(--amber)" }}>Query</span>
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Drawer overlay */}
