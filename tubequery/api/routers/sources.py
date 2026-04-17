@@ -53,3 +53,22 @@ def delete_source(
 
     vector_store.delete_source(source_id, kb_id)
     delete_source_record(source_id)
+
+
+@router.get("/stats/{kb_id}")
+def kb_stats(
+    kb_id: str,
+    vector_store=Depends(get_vector_store),
+):
+    """Return stats for a knowledge base."""
+    sources = load_sources(kb_id=kb_id)
+    total_chunks = vector_store.count(kb_id)
+    total_videos = sum(s.video_count for s in sources)
+    last_updated = max((s.created_at for s in sources), default=None)
+    return {
+        "kb_id": kb_id,
+        "source_count": len(sources),
+        "video_count": total_videos,
+        "chunk_count": total_chunks,
+        "last_updated": last_updated,
+    }

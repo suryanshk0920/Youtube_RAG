@@ -46,6 +46,7 @@ class ChatRequest(BaseModel):
     question: str
     kb_id: str = "default"
     history: list[ChatMessage] = Field(default_factory=list)
+    source_ids: list[str] | None = None  # None = search all sources in KB
 
 
 class CitationOut(BaseModel):

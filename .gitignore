@@ -36,3 +36,8 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+node_modules/
+**/node_modules/
+tubequery-ui/.next/
+tubequery-ui/.env.local

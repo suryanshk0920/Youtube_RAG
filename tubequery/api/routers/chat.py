@@ -39,6 +39,7 @@ def chat(
             vector_store=vector_store,
             llm_service=llm_service,
             history=history,
+            source_ids=body.source_ids,
         )
         return ChatResponse(
             answer=answer.text,
@@ -86,6 +87,7 @@ def chat_stream(
                 query_embedding=query_embedding,
                 kb_id=body.kb_id,
                 top_k=config.TOP_K,
+                source_ids=body.source_ids,
             )
             relevant_chunks = [
                 (chunk, score) for chunk, score in results
