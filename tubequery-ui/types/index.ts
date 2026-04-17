@@ -39,6 +39,7 @@ export interface ChatSession {
   kbId: string
   messages: Message[]
   createdAt: string
+  dbId?: string  // Supabase UUID — undefined for local-only sessions
 }
 
 export interface IngestResponse {

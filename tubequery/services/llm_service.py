@@ -24,20 +24,24 @@ logger = logging.getLogger(__name__)
 
 # ── System Prompt ───────────────────────────────────────────────────
 SYSTEM_PROMPT = """\
-You are a helpful assistant that answers questions based ONLY on the
-provided video transcript excerpts. You must:
+You are an expert assistant that answers questions based ONLY on the provided video transcript excerpts.
 
+RULES:
 1. Only use information from the provided context excerpts.
-2. If the context does not contain enough information to answer,
-   say: "I could not find relevant information in the ingested videos."
-3. Always end your answer with a SOURCES section listing ONLY the
-   specific excerpts you actually used, using this exact format:
-   SOURCES:
-   - [Video Title] at [MM:SS]
-4. Never make up information not present in the excerpts.
-5. Keep answers clear and concise.
-6. Only cite sources you genuinely drew information from — do not list
-   every excerpt provided, only the ones that contributed to your answer.
+2. If the context does not contain enough information, say: "I could not find relevant information in the ingested videos."
+3. Never make up information not present in the excerpts.
+4. Only cite sources you genuinely drew from.
+
+FORMATTING — always structure your answers like this:
+- Start with a 1-2 sentence direct answer to the question.
+- Then use bullet points or numbered steps to break down the details.
+- Use **bold** for key terms, concepts, or important phrases.
+- If there are multiple aspects, use short headers with ## to separate them.
+- Aim for 150-300 words — thorough but not padded.
+- End with a SOURCES section. Use EXACTLY this format, no brackets, no pipes:
+  SOURCES:
+  - Video Title at MM:SS
+  - Video Title at MM:SS
 """
 
 
@@ -46,49 +50,39 @@ def _filter_citations(
     chunks: list[tuple[Chunk, float]],
 ) -> list[Citation]:
     """
-    Parse the SOURCES section from the LLM answer and return only
-    citations that match chunks the model actually referenced.
-
-    Falls back to the single highest-scoring chunk if parsing fails.
+    Build citations. Tries SOURCES block parsing first, always falls back
+    to top-scoring chunk so there is always at least one citation.
     """
     import re
 
-    # Extract the SOURCES block
-    sources_match = re.search(r"SOURCES:\s*\n((?:\s*-[^\n]+\n?)+)", answer_text, re.IGNORECASE)
+    def make_citation(chunk: Chunk) -> Citation:
+        return Citation(
+            video_title=chunk.video_title,
+            video_id=chunk.video_id,
+            timestamp_label=chunk.timestamp_label,
+            youtube_url=chunk.youtube_url,
+            excerpt=chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
+        )
 
+    sources_match = re.search(r"SOURCES:\s*\n((?:\s*-[^\n]+\n?)+)", answer_text, re.IGNORECASE)
     matched: list[Citation] = []
 
     if sources_match:
-        sources_block = sources_match.group(1)
-        for line in sources_block.splitlines():
-            line = line.strip().lstrip("- ").strip()
+        for line in sources_match.group(1).splitlines():
+            line = line.strip().lstrip("- ").strip().strip("[]")
             if not line:
                 continue
-            # Match by title only (first 20 chars, case-insensitive) — timestamp matching
-            # is unreliable because LLMs reformat timestamps
-            for chunk, score in chunks:
-                title_fragment = chunk.video_title.lower()[:20]
-                if title_fragment and title_fragment in line.lower():
-                    matched.append(Citation(
-                        video_title=chunk.video_title,
-                        video_id=chunk.video_id,
-                        timestamp_label=chunk.timestamp_label,
-                        youtube_url=chunk.youtube_url,
-                        excerpt=chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
-                    ))
-                    break
-                # Also try matching by timestamp alone if title match fails
-                if chunk.timestamp_label in line:
-                    matched.append(Citation(
-                        video_title=chunk.video_title,
-                        video_id=chunk.video_id,
-                        timestamp_label=chunk.timestamp_label,
-                        youtube_url=chunk.youtube_url,
-                        excerpt=chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
-                    ))
+            for chunk, _ in chunks:
+                # Match by title fragment (first 20 chars) OR timestamp in any format
+                title_frag = chunk.video_title.lower()[:20]
+                ts = chunk.timestamp_label  # e.g. "2:34"
+                # Normalise line for matching
+                line_lower = line.lower()
+                if (title_frag and title_frag in line_lower) or (ts and ts in line):
+                    matched.append(make_citation(chunk))
                     break
 
-    # Deduplicate by video_id + timestamp
+    # Deduplicate
     seen: set[str] = set()
     unique: list[Citation] = []
     for c in matched:
@@ -97,32 +91,9 @@ def _filter_citations(
             seen.add(key)
             unique.append(c)
 
-    # Fallback: if nothing matched, use the top-scoring chunk
+    # Always return at least the top-scoring chunk
     if not unique and chunks:
-        best_chunk, _ = max(chunks, key=lambda x: x[1])
-        unique.append(Citation(
-            video_title=best_chunk.video_title,
-            video_id=best_chunk.video_id,
-            timestamp_label=best_chunk.timestamp_label,
-            youtube_url=best_chunk.youtube_url,
-            excerpt=best_chunk.text[:200] + "..." if len(best_chunk.text) > 200 else best_chunk.text,
-        ))
-
-    return unique
-
-
-# ── Interface ───────────────────────────────────────────────────────
-    # Fallback: if parsing found nothing, use only the top-scoring chunk
-    if not unique and chunks:
-        best = max(chunks, key=lambda x: x[1])
-        chunk, _ = best
-        unique.append(Citation(
-            video_title=chunk.video_title,
-            video_id=chunk.video_id,
-            timestamp_label=chunk.timestamp_label,
-            youtube_url=chunk.youtube_url,
-            excerpt=chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
-        ))
+        unique.append(make_citation(max(chunks, key=lambda x: x[1])[0]))
 
     return unique
 
@@ -149,6 +120,20 @@ class LLMService(ABC):
         """
         result = self.answer(question=prompt, chunks=[], history=[])
         return result.text
+
+    def stream_answer(
+        self,
+        question: str,
+        chunks: list[tuple[Chunk, float]],
+        history: list[dict],
+    ):
+        """
+        Stream answer tokens as a generator of strings.
+        Default falls back to yielding the full answer at once.
+        Override in subclasses for real token streaming.
+        """
+        answer = self.answer(question=question, chunks=chunks, history=history)
+        yield answer.text
 
 
 # ── Gemini Implementation ──────────────────────────────────────────
@@ -264,6 +249,58 @@ class OpenRouterLLMService(LLMService):
         response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"].get("content") or ""
+
+    def stream_answer(
+        self,
+        question: str,
+        chunks: list[tuple[Chunk, float]],
+        history: list[dict],
+    ):
+        """
+        Stream answer tokens from OpenRouter using SSE.
+        Yields text delta strings as they arrive.
+        """
+        if not chunks:
+            yield "I could not find relevant information in the ingested videos."
+            return
+
+        context = "\n\n---\n\n".join(
+            f"[{c.video_title} | {c.timestamp_label}]\n{c.text}"
+            for c, _ in chunks
+        )
+        prompt = f"Context from videos:\n\n{context}\n\nQuestion: {question}"
+
+        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        for turn in history[-config.CONVERSATION_HISTORY_TURNS:]:
+            role = "assistant" if turn["role"] == "assistant" else "user"
+            msg: dict = {"role": role, "content": turn.get("content", "")}
+            if role == "assistant" and turn.get("reasoning_details"):
+                msg["reasoning_details"] = turn["reasoning_details"]
+            messages.append(msg)
+        messages.append({"role": "user", "content": prompt})
+
+        payload = {
+            "model": config.OPENROUTER_MODEL,
+            "messages": messages,
+            "stream": True,
+        }
+
+        import json as _json
+        with self._http.stream(
+            "POST", self._API_URL, headers=self._headers, json=payload
+        ) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line or line == "data: [DONE]":
+                    continue
+                if line.startswith("data: "):
+                    try:
+                        chunk_data = _json.loads(line[6:])
+                        delta = chunk_data["choices"][0]["delta"].get("content")
+                        if delta:
+                            yield delta
+                    except Exception:
+                        continue
 
     def answer(
         self,

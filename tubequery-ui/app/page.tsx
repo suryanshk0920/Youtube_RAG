@@ -1,24 +1,12 @@
 "use client"
 import { useCallback, useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { ChatPanel } from "@/components/ChatPanel"
 import { IngestionPanel } from "@/components/IngestionPanel"
 import { Sidebar } from "@/components/Sidebar"
-import { getSources } from "@/lib/api"
+import { getSources, fetchSessions, createDBSession, updateDBSession, deleteDBSession } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import type { ChatSession, IntroData, Message, Source } from "@/types"
-
-const STORAGE_KEY = "tubequery_sessions_v2"
-
-function loadSessions(): Record<string, ChatSession> {
-  if (typeof window === "undefined") return {}
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : {}
-  } catch { return {} }
-}
-
-function saveSessions(s: Record<string, ChatSession>) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch { /* quota */ }
-}
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
@@ -32,6 +20,8 @@ function useIsMobile() {
 }
 
 export default function Home() {
+  const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
   const [activeKb, setActiveKb] = useState("default")
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null)
   const [sources, setSources] = useState<Source[]>([])
@@ -43,7 +33,29 @@ export default function Home() {
   const [mobileTab, setMobileTab] = useState<"chat" | "add" | "library">("chat")
   const isMobile = useIsMobile()
 
-  useEffect(() => { setSessions(loadSessions()) }, [])
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) router.push("/login")
+  }, [user, authLoading, router])
+
+  // Load sessions from Supabase on mount
+  useEffect(() => {
+    if (!user) return
+    fetchSessions().then(dbSessions => {
+      const map: Record<string, ChatSession> = {}
+      for (const s of dbSessions) {
+        map[s.id] = {
+          sourceId: s.source_id,
+          sourceTitle: s.source_title,
+          kbId: s.kb_name,
+          messages: (s.messages as Message[]) ?? [],
+          createdAt: s.created_at,
+          dbId: s.id,
+        }
+      }
+      setSessions(map)
+    })
+  }, [user])
 
   const loadSources = useCallback(async () => {
     try {
@@ -69,25 +81,36 @@ export default function Home() {
     }
     const updated = { ...sessions, [sourceId]: { ...session, messages } }
     setSessions(updated)
-    saveSessions(updated)
+    // Persist to Supabase if session has a dbId
+    if (existing?.dbId) {
+      updateDBSession(existing.dbId, messages).catch(e => console.warn("Session save failed:", e))
+    }
   }
 
-  function handleIntroReady(intro: IntroData) {
+  async function handleIntroReady(intro: IntroData) {
     const source = allSources.find(s => s.id === intro.source_id)
     const title = source?.title ?? intro.source_id
-    const session: ChatSession = {
-      sourceId: intro.source_id,
-      sourceTitle: title,
-      kbId: activeKb,
-      messages: [],
-      createdAt: new Date().toISOString(),
+    // Create session in Supabase
+    try {
+      const dbSession = await createDBSession(intro.source_id, title, activeKb)
+      const newSession: ChatSession = {
+        sourceId: intro.source_id,
+        sourceTitle: title,
+        kbId: activeKb,
+        messages: [],
+        createdAt: dbSession.created_at,
+        dbId: dbSession.id,
+      }
+      setSessions(prev => ({ ...prev, [dbSession.id]: newSession }))
+      setActiveSourceId(dbSession.id)
+    } catch {
+      // Fallback to local if Supabase fails
+      const localId = intro.source_id
+      setSessions(prev => ({ ...prev, [localId]: { sourceId: intro.source_id, sourceTitle: title, kbId: activeKb, messages: [], createdAt: new Date().toISOString() } }))
+      setActiveSourceId(localId)
     }
-    const updated = { ...sessions, [intro.source_id]: session }
-    setSessions(updated)
-    saveSessions(updated)
-    setActiveSourceId(intro.source_id)
     setPendingIntro(intro)
-    setMobileTab("chat") // switch to chat on mobile after ingestion
+    setMobileTab("chat")
   }
 
   function handleSelectSession(sourceId: string) {
@@ -99,10 +122,13 @@ export default function Home() {
   }
 
   function handleDeleteSession(sourceId: string) {
+    const session = sessions[sourceId]
+    if (session?.dbId) {
+      deleteDBSession(session.dbId).catch(e => console.warn("Session delete failed:", e))
+    }
     const updated = { ...sessions }
     delete updated[sourceId]
     setSessions(updated)
-    saveSessions(updated)
     if (activeSourceId === sourceId) {
       setActiveSourceId(null)
       setPendingIntro(null)

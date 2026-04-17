@@ -40,3 +40,5 @@ Thumbs.db
 tubequery-ui/.env.local
 tubequery-ui/.next/
 tubequery-ui/node_modules/
+
+SAAS_ROADMAP.md

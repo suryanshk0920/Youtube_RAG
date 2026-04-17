@@ -1,18 +1,32 @@
 import type { Citation, IngestResponse, IntroData, Message, Source } from "@/types"
+import { auth } from "@/lib/firebase"
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const user = auth.currentUser
+  if (!user) return { "Content-Type": "application/json" }
+  const token = await user.getIdToken()
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`,
+  }
+}
 
 // ── Sources ──────────────────────────────────────────────────────────
 
 export async function getSources(kb_id?: string): Promise<Source[]> {
   const url = kb_id ? `${BASE}/sources?kb_id=${kb_id}` : `${BASE}/sources`
-  const res = await fetch(url)
+  const res = await fetch(url, { headers: await authHeaders() })
   if (!res.ok) throw new Error("Failed to fetch sources")
   return res.json()
 }
 
 export async function deleteSource(source_id: string, kb_id: string): Promise<void> {
-  const res = await fetch(`${BASE}/sources/${source_id}?kb_id=${kb_id}`, { method: "DELETE" })
+  const res = await fetch(`${BASE}/sources/${source_id}?kb_id=${kb_id}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  })
   if (!res.ok) throw new Error("Failed to delete source")
 }
 
@@ -46,7 +60,7 @@ export async function streamIngest(
 ): Promise<void> {
   const res = await fetch(`${BASE}/ingest/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await authHeaders(),
     body: JSON.stringify({ url, kb_id }),
     signal,
   })
@@ -83,7 +97,7 @@ export async function streamIngest(
 }
 
 export async function getIntro(source_id: string): Promise<IntroData> {
-  const res = await fetch(`${BASE}/ingest/${source_id}/intro`)
+  const res = await fetch(`${BASE}/ingest/${source_id}/intro`, { headers: await authHeaders() })
   if (!res.ok) throw new Error("Failed to generate intro")
   return res.json()
 }
@@ -116,7 +130,7 @@ export async function streamChat(
   try {
     const res = await fetch(`${BASE}/chat/stream`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify({
         question,
         kb_id,
@@ -165,4 +179,47 @@ export async function streamChat(
     if (err instanceof Error && err.name === "AbortError") return
     callbacks.onError(err instanceof Error ? err.message : "Stream failed")
   }
+}
+
+// ── Sessions (Supabase-backed) ───────────────────────────────────────
+
+export interface DBSession {
+  id: string
+  source_id: string
+  source_title: string
+  kb_name: string
+  messages: Message[]
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchSessions(): Promise<DBSession[]> {
+  const res = await fetch(`${BASE}/sessions`, { headers: await authHeaders() })
+  if (!res.ok) return []
+  return res.json()
+}
+
+export async function createDBSession(source_id: string, source_title: string, kb_name: string): Promise<DBSession> {
+  const res = await fetch(`${BASE}/sessions`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ source_id, source_title, kb_name }),
+  })
+  if (!res.ok) throw new Error("Failed to create session")
+  return res.json()
+}
+
+export async function updateDBSession(session_id: string, messages: Message[]): Promise<void> {
+  await fetch(`${BASE}/sessions/${session_id}`, {
+    method: "PATCH",
+    headers: await authHeaders(),
+    body: JSON.stringify({ messages }),
+  })
+}
+
+export async function deleteDBSession(session_id: string): Promise<void> {
+  await fetch(`${BASE}/sessions/${session_id}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  })
 }
