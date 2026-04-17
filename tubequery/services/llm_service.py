@@ -38,9 +38,10 @@ FORMATTING — always structure your answers like this:
 - Use **bold** for key terms, concepts, or important phrases.
 - If there are multiple aspects, use short headers with ## to separate them.
 - Aim for 150-300 words — thorough but not padded.
-- End with a SOURCES section listing only the excerpts you used:
+- End with a SOURCES section. Use EXACTLY this format, no brackets, no pipes:
   SOURCES:
-  - [Video Title] at [MM:SS]
+  - Video Title at MM:SS
+  - Video Title at MM:SS
 """
 
 
@@ -68,13 +69,16 @@ def _filter_citations(
 
     if sources_match:
         for line in sources_match.group(1).splitlines():
-            line = line.strip().lstrip("- ").strip()
+            line = line.strip().lstrip("- ").strip().strip("[]")
             if not line:
                 continue
             for chunk, _ in chunks:
-                # Match by title fragment (first 20 chars) OR timestamp
-                if (chunk.video_title.lower()[:20] and chunk.video_title.lower()[:20] in line.lower()) \
-                        or chunk.timestamp_label in line:
+                # Match by title fragment (first 20 chars) OR timestamp in any format
+                title_frag = chunk.video_title.lower()[:20]
+                ts = chunk.timestamp_label  # e.g. "2:34"
+                # Normalise line for matching
+                line_lower = line.lower()
+                if (title_frag and title_frag in line_lower) or (ts and ts in line):
                     matched.append(make_citation(chunk))
                     break
 
