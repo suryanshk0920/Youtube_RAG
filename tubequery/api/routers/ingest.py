@@ -32,11 +32,19 @@ def _source_to_dict(source) -> dict:
 
 
 def _save_source_to_db(db: Any, user_id: str, source) -> None:
-    """Persist source to Supabase."""
+    """Persist source to Supabase. Gets or creates the KB UUID first."""
+    # Get or create the knowledge base row to get its UUID
+    kb_result = db.table("knowledge_bases").select("id").eq("user_id", user_id).eq("name", source.kb_id).execute()
+    if kb_result.data:
+        kb_uuid = kb_result.data[0]["id"]
+    else:
+        kb_insert = db.table("knowledge_bases").insert({"user_id": user_id, "name": source.kb_id}).execute()
+        kb_uuid = kb_insert.data[0]["id"]
+
     db.table("sources").upsert({
         "id": source.id,
         "user_id": user_id,
-        "kb_id": source.kb_id,
+        "kb_id": kb_uuid,
         "url": source.url,
         "title": source.title,
         "source_type": source.source_type.value,
