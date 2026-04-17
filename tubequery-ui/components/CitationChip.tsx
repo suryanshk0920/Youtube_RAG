@@ -35,11 +35,11 @@ export function CitationChip({ citation }: { citation: Citation }) {
       }}
     >
       {/* Play triangle */}
-      <span style={{ color: "var(--amber)", fontSize: "0.55rem", lineHeight: 1 }}>▶</span>
-      <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontFamily: "'DM Sans', sans-serif" }}>
+      <span style={{ color: "var(--amber)", fontSize: "0.65rem", lineHeight: 1 }}>▶</span>
+      <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)", fontFamily: "'DM Sans', sans-serif" }}>
         {shortTitle}
       </span>
-      <span style={{ fontSize: "0.68rem", color: "var(--amber)", fontFamily: "'DM Mono', monospace", fontWeight: 500 }}>
+      <span style={{ fontSize: "0.78rem", color: "var(--amber)", fontFamily: "'DM Mono', monospace", fontWeight: 500 }}>
         {citation.timestamp_label}
       </span>
     </a>

@@ -95,13 +95,13 @@ body::before {
 }
 
 /* Prose overrides for markdown */
-.tq-prose { line-height: 1.75; color: var(--text-primary); }
+.tq-prose { line-height: 1.75; color: var(--text-primary); font-size: 0.975rem; }
 .tq-prose p { margin: 0.6em 0; }
 .tq-prose ul { margin: 0.6em 0; padding-left: 1.4em; }
 .tq-prose ol { margin: 0.6em 0; padding-left: 1.4em; }
 .tq-prose li { margin: 0.3em 0; }
 .tq-prose strong { color: #f0ece4; font-weight: 600; }
-.tq-prose h2 { font-family: var(--font-syne), sans-serif; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin: 1em 0 0.4em; letter-spacing: -0.01em; }
-.tq-prose h3 { font-family: var(--font-syne), sans-serif; font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); margin: 0.8em 0 0.3em; }
-.tq-prose code { font-family: var(--font-dm-mono), monospace; font-size: 0.8em; background: rgba(245,158,11,0.08); color: #f59e0b; padding: 0.15em 0.4em; border-radius: 4px; }
+.tq-prose h2 { font-family: var(--font-syne), sans-serif; font-size: 1.05rem; font-weight: 600; color: var(--text-primary); margin: 1em 0 0.4em; letter-spacing: -0.01em; }
+.tq-prose h3 { font-family: var(--font-syne), sans-serif; font-size: 0.975rem; font-weight: 600; color: var(--text-secondary); margin: 0.8em 0 0.3em; }
+.tq-prose code { font-family: var(--font-dm-mono), monospace; font-size: 0.875em; background: rgba(245,158,11,0.08); color: #f59e0b; padding: 0.15em 0.4em; border-radius: 4px; }
 .tq-prose blockquote { border-left: 2px solid rgba(245,158,11,0.3); padding-left: 1em; color: var(--text-secondary); font-style: italic; margin: 0.8em 0; }

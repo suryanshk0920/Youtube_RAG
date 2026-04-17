@@ -55,10 +55,10 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Header */}
       <div style={{ padding: "22px 20px 16px", borderBottom: "1px solid var(--border)" }}>
-        <p style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
+        <p style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
           Add Content
         </p>
-        <p style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "2px" }}>
+        <p style={{ fontSize: "0.9rem", color: "var(--text-muted)", marginTop: "2px" }}>
           Paste a YouTube URL
         </p>
       </div>
@@ -79,7 +79,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
               border: "1px solid var(--border)",
               background: "var(--bg-elevated)",
               color: "var(--text-primary)",
-              fontSize: "0.8rem",
+              fontSize: "0.9rem",
               outline: "none",
               transition: "border-color 0.18s",
               fontFamily: "'DM Sans', sans-serif",
@@ -98,7 +98,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
               border: "1px solid var(--border-warm)",
               background: loading ? "var(--amber-dim)" : "var(--amber-dim)",
               color: "var(--amber)",
-              fontSize: "0.8rem",
+              fontSize: "0.9rem",
               fontWeight: 600,
               fontFamily: "'Syne', sans-serif",
               cursor: loading || !url.trim() ? "not-allowed" : "pointer",
@@ -122,7 +122,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
               style={{
                 padding: "8px 12px",
                 borderRadius: "8px",
-                fontSize: "0.75rem",
+                fontSize: "0.85rem",
                 border: `1px solid ${status.type === "success" ? "rgba(52,211,153,0.2)" : "rgba(248,113,113,0.2)"}`,
                 background: status.type === "success" ? "rgba(52,211,153,0.06)" : "rgba(248,113,113,0.06)",
                 color: status.type === "success" ? "#6ee7b7" : "#fca5a5",
@@ -136,7 +136,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
         {/* Sources */}
         {sources.length > 0 && (
           <div>
-            <p style={{ fontSize: "0.65rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "8px" }}>
+            <p style={{ fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "8px" }}>
               Ingested · {sources.length}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -156,18 +156,18 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)"}
                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
                   >
-                    <span style={{ color: "var(--amber)", fontSize: "0.6rem", flexShrink: 0 }}>▶</span>
-                    <span style={{ flex: 1, fontSize: "0.78rem", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ color: "var(--amber)", fontSize: "0.7rem", flexShrink: 0 }}>▶</span>
+                    <span style={{ flex: 1, fontSize: "0.88rem", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {s.title}
                     </span>
-                    <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", transition: "transform 0.2s", transform: expanded === s.id ? "rotate(180deg)" : "rotate(0deg)", display: "inline-block" }}>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", transition: "transform 0.2s", transform: expanded === s.id ? "rotate(180deg)" : "rotate(0deg)", display: "inline-block" }}>
                       ▾
                     </span>
                   </button>
 
                   {expanded === s.id && (
                     <div className="animate-fade-in" style={{ padding: "0 12px 12px", borderTop: "1px solid var(--border)" }}>
-                      <div style={{ display: "flex", gap: "12px", padding: "8px 0", fontSize: "0.7rem", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>
+                      <div style={{ display: "flex", gap: "12px", padding: "8px 0", fontSize: "0.8rem", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>
                         <span>{s.video_count}v</span>
                         <span>·</span>
                         <span>{s.chunk_count} chunks</span>
@@ -187,7 +187,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
                           style={{
                             flex: 1, padding: "7px", borderRadius: "7px",
                             border: "1px solid var(--border-warm)", background: "var(--amber-glow)",
-                            color: "var(--amber)", fontSize: "0.72rem", fontWeight: 600,
+                            color: "var(--amber)", fontSize: "0.82rem", fontWeight: 600,
                             cursor: summaryLoadingId === s.id ? "not-allowed" : "pointer",
                             display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
                             opacity: summaryLoadingId === s.id ? 0.6 : 1,
@@ -202,7 +202,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
                           style={{
                             padding: "7px 10px", borderRadius: "7px",
                             border: "1px solid rgba(248,113,113,0.15)", background: "rgba(248,113,113,0.05)",
-                            color: "rgba(248,113,113,0.7)", fontSize: "0.72rem",
+                            color: "rgba(248,113,113,0.7)", fontSize: "0.82rem",
                             cursor: "pointer", transition: "all 0.15s",
                           }}
                           onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(248,113,113,0.12)"}
@@ -220,8 +220,8 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
         )}
 
         {sources.length === 0 && !loading && (
-          <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-muted)", fontSize: "0.78rem" }}>
-            <div style={{ fontSize: "1.5rem", marginBottom: "8px", opacity: 0.3 }}>◈</div>
+          <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-muted)", fontSize: "0.88rem" }}>
+            <div style={{ fontSize: "1.6rem", marginBottom: "8px", opacity: 0.3 }}>◈</div>
             No videos yet
           </div>
         )}

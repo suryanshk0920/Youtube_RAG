@@ -9,15 +9,19 @@ interface Props {
   activeKb: string
   pendingIntro: IntroData | null
   onIntroDismiss: () => void
+  messages: Message[]
+  onMessagesChange: (messages: Message[]) => void
 }
 
-export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _ }: Props) {
-  const [messages, setMessages] = useState<Message[]>([])
+export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _, messages, onMessagesChange }: Props) {
   const [input, setInput] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // Ref to always have latest messages in streaming callbacks
+  const messagesRef = useRef<Message[]>(messages)
+  useEffect(() => { messagesRef.current = messages }, [messages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -30,19 +34,15 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _ }: Props) 
     ta.style.height = Math.min(ta.scrollHeight, 160) + "px"
   }, [input])
 
-  // Reset messages when KB changes
-  useEffect(() => {
-    setMessages([])
-  }, [activeKb])
-
   async function sendMessage(question: string) {
     if (!question.trim() || isStreaming) return
 
+    const history = messagesRef.current
     const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: question.trim() }
     const assistantId = crypto.randomUUID()
     const assistantMsg: Message = { id: assistantId, role: "assistant", content: "", citations: [], isStreaming: true }
 
-    setMessages(prev => [...prev, userMsg, assistantMsg])
+    onMessagesChange([...history, userMsg, assistantMsg])
     setInput("")
     setIsStreaming(true)
 
@@ -50,12 +50,34 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _ }: Props) 
     abortRef.current = controller
 
     await streamChat(
-      question.trim(), activeKb, messages,
+      question.trim(), activeKb, history,
       {
-        onToken: token => setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: m.content + token } : m)),
-        onCitation: (citation: Citation) => setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, citations: [...(m.citations ?? []), citation] } : m)),
-        onDone: () => { setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m)); setIsStreaming(false) },
-        onError: err => { setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: `Error: ${err}`, isStreaming: false } : m)); setIsStreaming(false) },
+        onToken: token => {
+          const latest = messagesRef.current
+          onMessagesChange(latest.map(m =>
+            m.id === assistantId ? { ...m, content: m.content + token } : m
+          ))
+        },
+        onCitation: (citation: Citation) => {
+          const latest = messagesRef.current
+          onMessagesChange(latest.map(m =>
+            m.id === assistantId ? { ...m, citations: [...(m.citations ?? []), citation] } : m
+          ))
+        },
+        onDone: () => {
+          const latest = messagesRef.current
+          onMessagesChange(latest.map(m =>
+            m.id === assistantId ? { ...m, isStreaming: false } : m
+          ))
+          setIsStreaming(false)
+        },
+        onError: err => {
+          const latest = messagesRef.current
+          onMessagesChange(latest.map(m =>
+            m.id === assistantId ? { ...m, content: `Error: ${err}`, isStreaming: false } : m
+          ))
+          setIsStreaming(false)
+        },
       },
       controller.signal
     )
@@ -63,114 +85,101 @@ export function ChatPanel({ activeKb, pendingIntro, onIntroDismiss: _ }: Props) 
 
   function stopStream() {
     abortRef.current?.abort()
-    setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
+    onMessagesChange(messagesRef.current.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
     setIsStreaming(false)
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Messages area */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px 16px" }}>
-        {/* Intro card */}
-        {pendingIntro && (
-          <IntroCard intro={pendingIntro} onQuestionSelect={q => sendMessage(q)} />
-        )}
+      <div style={{ flex: 1, overflowY: "auto", padding: "28px 0 16px" }}>
+        <div style={{ maxWidth: "780px", margin: "0 auto", padding: "0 32px" }}>
 
-        {/* Empty state */}
-        {!pendingIntro && messages.length === 0 && (
-          <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center", paddingBottom: "60px" }}>
-            <div style={{
-              width: "52px", height: "52px", borderRadius: "14px",
-              background: "var(--amber-dim)", border: "1px solid var(--border-warm)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "1rem",
-              color: "var(--amber)", marginBottom: "20px",
-              boxShadow: "0 0 40px rgba(245,158,11,0.1)",
-            }}>
-              TQ
+          {pendingIntro && (
+            <IntroCard intro={pendingIntro} onQuestionSelect={q => sendMessage(q)} />
+          )}
+
+          {!pendingIntro && messages.length === 0 && (
+            <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", paddingTop: "80px", paddingBottom: "60px" }}>
+              <div style={{
+                width: "52px", height: "52px", borderRadius: "14px",
+                background: "var(--amber-dim)", border: "1px solid var(--border-warm)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "var(--font-syne), sans-serif", fontWeight: 800, fontSize: "1.1rem",
+                color: "var(--amber)", marginBottom: "20px",
+                boxShadow: "0 0 40px rgba(245,158,11,0.1)",
+              }}>
+                TQ
+              </div>
+              <p style={{ fontFamily: "var(--font-syne), sans-serif", fontWeight: 700, fontSize: "1.2rem", color: "var(--text-primary)", marginBottom: "8px", letterSpacing: "-0.02em" }}>
+                TubeQuery
+              </p>
+              <p style={{ fontSize: "0.92rem", color: "var(--text-muted)", maxWidth: "260px", lineHeight: 1.6 }}>
+                Ingest a YouTube video on the right, then ask anything about its content.
+              </p>
             </div>
-            <p style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", marginBottom: "8px", letterSpacing: "-0.02em" }}>
-              TubeQuery
-            </p>
-            <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", maxWidth: "260px", lineHeight: 1.6 }}>
-              Ingest a YouTube video on the right, then ask anything about its content.
-            </p>
-          </div>
-        )}
+          )}
 
-        {messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}
-        <div ref={bottomRef} />
+          {messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* Input */}
-      <div style={{ padding: "12px 32px 24px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            gap: "10px",
-            padding: "12px 14px",
-            borderRadius: "14px",
-            border: "1px solid var(--border)",
-            background: "var(--bg-elevated)",
-            transition: "border-color 0.18s, box-shadow 0.18s",
-          }}
-          onFocusCapture={e => {
-            const el = e.currentTarget as HTMLElement
-            el.style.borderColor = "rgba(245,158,11,0.3)"
-            el.style.boxShadow = "0 0 0 3px rgba(245,158,11,0.05)"
-          }}
-          onBlurCapture={e => {
-            const el = e.currentTarget as HTMLElement
-            el.style.borderColor = "var(--border)"
-            el.style.boxShadow = "none"
-          }}
-        >
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input) } }}
-            placeholder="Ask anything about your videos…"
-            rows={1}
+      <div style={{ padding: "12px 0 24px" }}>
+        <div style={{ maxWidth: "780px", margin: "0 auto", padding: "0 32px" }}>
+          <div
             style={{
-              flex: 1,
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              resize: "none",
-              fontSize: "0.875rem",
-              color: "var(--text-primary)",
-              fontFamily: "'DM Sans', sans-serif",
-              lineHeight: 1.6,
+              display: "flex", alignItems: "flex-end", gap: "10px",
+              padding: "12px 14px", borderRadius: "14px",
+              border: "1px solid var(--border)", background: "var(--bg-elevated)",
+              transition: "border-color 0.18s, box-shadow 0.18s",
             }}
-          />
-          <button
-            onClick={isStreaming ? stopStream : () => sendMessage(input)}
-            disabled={!isStreaming && !input.trim()}
-            style={{
-              flexShrink: 0,
-              width: "32px",
-              height: "32px",
-              borderRadius: "9px",
-              border: "1px solid var(--border-warm)",
-              background: isStreaming ? "rgba(248,113,113,0.1)" : "var(--amber-dim)",
-              color: isStreaming ? "#fca5a5" : "var(--amber)",
-              cursor: (!isStreaming && !input.trim()) ? "not-allowed" : "pointer",
-              opacity: (!isStreaming && !input.trim()) ? 0.3 : 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "0.75rem",
-              transition: "all 0.18s",
+            onFocusCapture={e => {
+              const el = e.currentTarget as HTMLElement
+              el.style.borderColor = "rgba(245,158,11,0.3)"
+              el.style.boxShadow = "0 0 0 3px rgba(245,158,11,0.05)"
+            }}
+            onBlurCapture={e => {
+              const el = e.currentTarget as HTMLElement
+              el.style.borderColor = "var(--border)"
+              el.style.boxShadow = "none"
             }}
           >
-            {isStreaming ? "■" : "↑"}
-          </button>
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input) } }}
+              placeholder="Ask anything about your videos…"
+              rows={1}
+              style={{
+                flex: 1, background: "transparent", border: "none", outline: "none",
+                resize: "none", fontSize: "0.975rem", color: "var(--text-primary)",
+                fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.6,
+              }}
+            />
+            <button
+              onClick={isStreaming ? stopStream : () => sendMessage(input)}
+              disabled={!isStreaming && !input.trim()}
+              style={{
+                flexShrink: 0, width: "32px", height: "32px", borderRadius: "9px",
+                border: "1px solid var(--border-warm)",
+                background: isStreaming ? "rgba(248,113,113,0.1)" : "var(--amber-dim)",
+                color: isStreaming ? "#fca5a5" : "var(--amber)",
+                cursor: (!isStreaming && !input.trim()) ? "not-allowed" : "pointer",
+                opacity: (!isStreaming && !input.trim()) ? 0.3 : 1,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "0.85rem", transition: "all 0.18s",
+              }}
+            >
+              {isStreaming ? "■" : "↑"}
+            </button>
+          </div>
+          <p style={{ textAlign: "center", fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "8px", fontFamily: "var(--font-dm-mono), monospace" }}>
+            enter to send · shift+enter for newline
+          </p>
         </div>
-        <p style={{ textAlign: "center", fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "8px", fontFamily: "'DM Mono', monospace" }}>
-          enter to send · shift+enter for newline
-        </p>
       </div>
     </div>
   )

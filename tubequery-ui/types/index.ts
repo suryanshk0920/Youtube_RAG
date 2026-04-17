@@ -33,6 +33,14 @@ export interface IntroData {
   questions: string[]
 }
 
+export interface ChatSession {
+  sourceId: string
+  sourceTitle: string
+  kbId: string
+  messages: Message[]
+  createdAt: string
+}
+
 export interface IngestResponse {
   source_id: string
   title: string

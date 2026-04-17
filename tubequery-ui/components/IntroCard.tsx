@@ -24,32 +24,32 @@ export function IntroCard({ intro, onQuestionSelect }: Props) {
           width: "24px", height: "24px", borderRadius: "7px",
           background: "var(--amber-dim)", border: "1px solid var(--border-warm)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "0.6rem",
+          fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "0.7rem",
           color: "var(--amber)",
         }}>
           TQ
         </div>
-        <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 600, fontSize: "0.8rem", color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
+        <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 600, fontSize: "0.9rem", color: "var(--text-secondary)", letterSpacing: "0.02em" }}>
           VIDEO SUMMARY
         </span>
       </div>
 
       {/* Overview */}
-      <p className="animate-fade-up" style={{ fontSize: "0.875rem", color: "var(--text-primary)", lineHeight: 1.75, marginBottom: "18px" }}>
+      <p className="animate-fade-up" style={{ fontSize: "0.975rem", color: "var(--text-primary)", lineHeight: 1.75, marginBottom: "18px" }}>
         {intro.intro}
       </p>
 
       {/* Topics */}
       {intro.topics.length > 0 && (
         <div className="animate-fade-up" style={{ marginBottom: "18px" }}>
-          <p style={{ fontSize: "0.65rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "10px" }}>
+          <p style={{ fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "10px" }}>
             Topics covered
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }} className="stagger">
             {intro.topics.map((t, i) => (
               <div key={i} className="animate-fade-up" style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-                <span style={{ color: "var(--amber)", fontSize: "0.5rem", marginTop: "6px", flexShrink: 0 }}>◆</span>
-                <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>{t}</span>
+                <span style={{ color: "var(--amber)", fontSize: "0.6rem", marginTop: "6px", flexShrink: 0 }}>◆</span>
+                <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>{t}</span>
               </div>
             ))}
           </div>
@@ -64,7 +64,7 @@ export function IntroCard({ intro, onQuestionSelect }: Props) {
       {/* Suggested questions */}
       {intro.questions.length > 0 && (
         <div className="animate-fade-up">
-          <p style={{ fontSize: "0.65rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "8px" }}>
+          <p style={{ fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "8px" }}>
             Ask something
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "5px" }} className="stagger">
@@ -79,7 +79,7 @@ export function IntroCard({ intro, onQuestionSelect }: Props) {
                   borderRadius: "9px",
                   border: "1px solid var(--border)",
                   background: "transparent",
-                  fontSize: "0.8rem",
+                  fontSize: "0.9rem",
                   color: "var(--text-secondary)",
                   cursor: "pointer",
                   transition: "all 0.18s ease",

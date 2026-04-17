@@ -32,7 +32,7 @@ export function MessageBubble({ message }: { message: Message }) {
           borderRadius: "16px 16px 4px 16px",
           background: "var(--bg-elevated)",
           border: "1px solid var(--border)",
-          fontSize: "0.875rem",
+          fontSize: "0.975rem",
           lineHeight: 1.65,
           color: "var(--text-primary)",
         }}>
@@ -58,7 +58,7 @@ export function MessageBubble({ message }: { message: Message }) {
         marginTop: "2px",
         fontFamily: "'Syne', sans-serif",
         fontWeight: 700,
-        fontSize: "0.65rem",
+        fontSize: "0.75rem",
         color: "var(--amber)",
         letterSpacing: "-0.02em",
       }}>
@@ -67,7 +67,7 @@ export function MessageBubble({ message }: { message: Message }) {
 
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Markdown content */}
-        <div className="tq-prose" style={{ fontSize: "0.875rem" }}>
+        <div className="tq-prose" style={{ fontSize: "0.975rem" }}>
           <ReactMarkdown>{message.content}</ReactMarkdown>
           {message.isStreaming && <StreamingCursor />}
         </div>
