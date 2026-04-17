@@ -164,26 +164,30 @@ export default function Home() {
 
           {/* Top bar */}
           <div style={{
-            display: "flex", alignItems: "center", gap: "12px",
-            padding: "12px 16px", borderBottom: "1px solid var(--border)",
+            display: "flex", alignItems: "center", gap: "0",
+            padding: "10px 16px", borderBottom: "1px solid var(--border)",
             background: "var(--bg-surface)", flexShrink: 0,
           }}>
-            {/* Hamburger */}
+            {/* Hamburger — visually distinct */}
             <button
               onClick={() => setMobileTab(mobileTab === "library" ? "chat" : "library")}
               style={{
-                width: "36px", height: "36px", borderRadius: "9px",
-                border: "1px solid var(--border)", background: mobileTab === "library" ? "var(--amber-dim)" : "transparent",
-                color: mobileTab === "library" ? "var(--amber)" : "var(--text-muted)",
+                width: "40px", height: "40px", borderRadius: "10px",
+                border: "1px solid var(--border-warm)",
+                background: mobileTab === "library" ? "var(--amber-dim)" : "rgba(245,158,11,0.06)",
+                color: "var(--amber)",
                 cursor: "pointer", display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center", gap: "4px",
+                alignItems: "center", justifyContent: "center", gap: "5px",
                 transition: "all 0.15s", flexShrink: 0,
               }}
             >
-              <span style={{ display: "block", width: "14px", height: "1.5px", background: "currentColor", borderRadius: "1px" }} />
-              <span style={{ display: "block", width: "14px", height: "1.5px", background: "currentColor", borderRadius: "1px" }} />
-              <span style={{ display: "block", width: "14px", height: "1.5px", background: "currentColor", borderRadius: "1px" }} />
+              <span style={{ display: "block", width: "16px", height: "2px", background: "currentColor", borderRadius: "1px" }} />
+              <span style={{ display: "block", width: "16px", height: "2px", background: "currentColor", borderRadius: "1px" }} />
+              <span style={{ display: "block", width: "16px", height: "2px", background: "currentColor", borderRadius: "1px" }} />
             </button>
+
+            {/* Separator */}
+            <div style={{ width: "1px", height: "24px", background: "var(--border)", margin: "0 14px", flexShrink: 0 }} />
 
             {/* Wordmark */}
             <p style={{ fontFamily: "var(--font-syne), sans-serif", fontWeight: 800, fontSize: "1.1rem", letterSpacing: "-0.03em", color: "var(--text-primary)", margin: 0 }}>
