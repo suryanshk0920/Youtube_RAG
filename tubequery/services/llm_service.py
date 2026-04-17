@@ -73,12 +73,15 @@ def _filter_citations(
             if not line:
                 continue
             for chunk, _ in chunks:
-                # Match by title fragment (first 20 chars) OR timestamp in any format
+                ts = chunk.timestamp_label  # e.g. "1:39"
                 title_frag = chunk.video_title.lower()[:20]
-                ts = chunk.timestamp_label  # e.g. "2:34"
-                # Normalise line for matching
                 line_lower = line.lower()
-                if (title_frag and title_frag in line_lower) or (ts and ts in line):
+                # Timestamp match is most specific — try it first
+                if ts and ts in line:
+                    matched.append(make_citation(chunk))
+                    break
+                # Fall back to title fragment
+                if title_frag and title_frag in line_lower:
                     matched.append(make_citation(chunk))
                     break
 
