@@ -157,15 +157,16 @@ def get_monthly_usage(db: Any, user_id: str, event_type: str) -> int:
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+    # Select just the id column and count the rows returned
     result = (
         db.table("usage_events")
-        .select("id", count="exact")
+        .select("id")
         .eq("user_id", user_id)
         .eq("event_type", event_type)
         .gte("created_at", month_start)
         .execute()
     )
-    return result.count or 0
+    return len(result.data) if result.data else 0
 
 
 # ── Plan limits ──────────────────────────────────────────────────────

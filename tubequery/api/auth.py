@@ -74,9 +74,8 @@ class _TableQuery:
         self._count: str | None = None
         self._single = False
 
-    def select(self, cols: str = "*", count: str | None = None) -> "_TableQuery":
+    def select(self, cols: str = "*") -> "_TableQuery":
         self._select_cols = cols
-        self._count = count
         return self
 
     def eq(self, col: str, val) -> "_TableQuery":
