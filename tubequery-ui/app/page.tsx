@@ -20,6 +20,17 @@ function saveSessions(s: Record<string, ChatSession>) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch { /* quota */ }
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+  return isMobile
+}
+
 export default function Home() {
   const [activeKb, setActiveKb] = useState("default")
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null)
@@ -30,6 +41,7 @@ export default function Home() {
   const [sessions, setSessions] = useState<Record<string, ChatSession>>({})
   // Mobile tab: "chat" | "add" | "library"
   const [mobileTab, setMobileTab] = useState<"chat" | "add" | "library">("chat")
+  const isMobile = useIsMobile()
 
   useEffect(() => { setSessions(loadSessions()) }, [])
 
@@ -131,78 +143,79 @@ export default function Home() {
 
   return (
     <>
-      {/* ── Desktop layout (≥768px) ─────────────────────────────── */}
-      <div className="desktop-layout" style={{ display: "flex", height: "100dvh", background: "var(--bg-base)", overflow: "hidden" }}>
-        <div style={{ width: "240px", flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--bg-surface)" }}>
-          <Sidebar {...sidebarProps} />
+      {/* ── Desktop layout ─────────────────────────────────────── */}
+      {!isMobile && (
+        <div style={{ display: "flex", height: "100dvh", background: "var(--bg-base)", overflow: "hidden" }}>
+          <div style={{ width: "240px", flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+            <Sidebar {...sidebarProps} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <ChatPanel {...chatProps} />
+          </div>
+          <div style={{ width: "340px", flexShrink: 0, borderLeft: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+            <IngestionPanel {...ingestProps} />
+          </div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <ChatPanel {...chatProps} />
-        </div>
-        <div style={{ width: "340px", flexShrink: 0, borderLeft: "1px solid var(--border)", background: "var(--bg-surface)" }}>
-          <IngestionPanel {...ingestProps} />
-        </div>
-      </div>
+      )}
 
-      {/* ── Mobile layout (<768px) ──────────────────────────────── */}
-      <div className="mobile-layout" style={{ display: "none", flexDirection: "column", height: "100dvh", background: "var(--bg-base)" }}>
-        {/* Content area */}
-        <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-          {mobileTab === "chat" && <ChatPanel {...chatProps} />}
-          {mobileTab === "add" && (
-            <div style={{ height: "100%", overflowY: "auto", background: "var(--bg-surface)" }}>
-              <IngestionPanel {...ingestProps} />
-            </div>
-          )}
-          {mobileTab === "library" && (
-            <div style={{ height: "100%", overflowY: "auto", background: "var(--bg-surface)" }}>
-              <Sidebar {...sidebarProps} />
-            </div>
-          )}
-        </div>
+      {/* ── Mobile layout ──────────────────────────────────────── */}
+      {isMobile && (
+        <div style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "var(--bg-base)" }}>
+          {/* Content area — only active tab rendered */}
+          <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+            {mobileTab === "chat" && <ChatPanel {...chatProps} />}
+            {mobileTab === "add" && (
+              <div style={{ height: "100%", overflowY: "auto", background: "var(--bg-surface)" }}>
+                <IngestionPanel {...ingestProps} />
+              </div>
+            )}
+            {mobileTab === "library" && (
+              <div style={{ height: "100%", overflowY: "auto", background: "var(--bg-surface)" }}>
+                <Sidebar {...sidebarProps} />
+              </div>
+            )}
+          </div>
 
-        {/* Bottom tab bar */}
-        <div style={{
-          display: "flex",
-          borderTop: "1px solid var(--border)",
-          background: "var(--bg-surface)",
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
-        }}>
-          {([
-            { id: "chat",    icon: "💬", label: "Chat" },
-            { id: "add",     icon: "＋", label: "Add" },
-            { id: "library", icon: "◈",  label: "Library" },
-          ] as const).map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setMobileTab(tab.id)}
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "3px",
-                padding: "10px 0",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                color: mobileTab === tab.id ? "var(--amber)" : "var(--text-muted)",
-                transition: "color 0.15s",
-              }}
-            >
-              <span style={{ fontSize: "1.1rem", lineHeight: 1 }}>{tab.icon}</span>
-              <span style={{
-                fontSize: "0.65rem",
-                fontFamily: "var(--font-dm-mono), monospace",
-                letterSpacing: "0.05em",
-              }}>
-                {tab.label}
-              </span>
-            </button>
-          ))}
+          {/* Bottom tab bar */}
+          <div style={{
+            display: "flex",
+            borderTop: "1px solid var(--border)",
+            background: "var(--bg-surface)",
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            flexShrink: 0,
+          }}>
+            {([
+              { id: "chat",    icon: "💬", label: "Chat" },
+              { id: "add",     icon: "＋", label: "Add" },
+              { id: "library", icon: "◈",  label: "Library" },
+            ] as const).map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setMobileTab(tab.id)}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "3px",
+                  padding: "12px 0",
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  color: mobileTab === tab.id ? "var(--amber)" : "var(--text-muted)",
+                  transition: "color 0.15s",
+                }}
+              >
+                <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>{tab.icon}</span>
+                <span style={{ fontSize: "0.65rem", fontFamily: "var(--font-dm-mono), monospace", letterSpacing: "0.05em" }}>
+                  {tab.label}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </>
   )
 }

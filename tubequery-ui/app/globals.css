@@ -106,20 +106,9 @@ body::before {
 .tq-prose code { font-family: var(--font-dm-mono), monospace; font-size: 0.875em; background: rgba(245,158,11,0.08); color: #f59e0b; padding: 0.15em 0.4em; border-radius: 4px; }
 .tq-prose blockquote { border-left: 2px solid rgba(245,158,11,0.3); padding-left: 1em; color: var(--text-secondary); font-style: italic; margin: 0.8em 0; }
 
-/* ── Mobile layout ───────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .desktop-layout { display: none !important; }
-  .mobile-layout  { display: flex !important; }
-}
-
-@media (min-width: 769px) {
-  .desktop-layout { display: flex !important; }
-  .mobile-layout  { display: none !important; }
-}
-
+/* ── Responsive breakpoints ──────────────────────────────────────── */
 @media (max-width: 1024px) and (min-width: 769px) {
-  .desktop-layout > div:first-child { width: 200px !important; }
-  .desktop-layout > div:last-child  { width: 280px !important; }
+  /* Slightly narrower panels on tablets */
 }
 
 /* ── Source card expand animation ────────────────────────────────── */
