@@ -33,7 +33,6 @@ def _source_to_dict(source) -> dict:
 
 def _save_source_to_db(db: Any, user_id: str, source) -> None:
     """Persist source to Supabase. Gets or creates the KB UUID first."""
-    # Get or create the knowledge base row to get its UUID
     kb_result = db.table("knowledge_bases").select("id").eq("user_id", user_id).eq("name", source.kb_id).execute()
     if kb_result.data:
         kb_uuid = kb_result.data[0]["id"]
@@ -45,6 +44,7 @@ def _save_source_to_db(db: Any, user_id: str, source) -> None:
         "id": source.id,
         "user_id": user_id,
         "kb_id": kb_uuid,
+        "kb_name": source.kb_id,   # store the name string for ChromaDB lookups
         "url": source.url,
         "title": source.title,
         "source_type": source.source_type.value,
@@ -140,10 +140,12 @@ def get_intro(
 
     from models.source import Source, SourceType, IngestionStatus
     row = result.data[0]
+    # Use kb_name (the string name) for ChromaDB lookups, not the UUID
+    kb_for_chroma = row.get("kb_name") or row["kb_id"]
     source = Source(
         id=row["id"], url=row["url"],
         source_type=SourceType(row["source_type"]),
-        title=row["title"], kb_id=row["kb_id"],
+        title=row["title"], kb_id=kb_for_chroma,
         status=IngestionStatus(row["status"]),
         video_count=row["video_count"], chunk_count=row["chunk_count"],
     )

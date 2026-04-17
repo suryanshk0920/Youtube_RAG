@@ -79,9 +79,7 @@ export default function Home() {
       messages: [],
       createdAt: new Date().toISOString(),
     }
-    const updated = { ...sessions, [sourceId]: { ...session, messages } }
-    setSessions(updated)
-    // Persist to Supabase if session has a dbId
+    setSessions(prev => ({ ...prev, [sourceId]: { ...session, messages } }))
     if (existing?.dbId) {
       updateDBSession(existing.dbId, messages).catch(e => console.warn("Session save failed:", e))
     }
@@ -90,7 +88,12 @@ export default function Home() {
   async function handleIntroReady(intro: IntroData) {
     const source = allSources.find(s => s.id === intro.source_id)
     const title = source?.title ?? intro.source_id
-    // Create session in Supabase
+
+    // Show intro immediately
+    setPendingIntro(intro)
+    setMobileTab("chat")
+
+    // Create session in Supabase (async, non-blocking)
     try {
       const dbSession = await createDBSession(intro.source_id, title, activeKb)
       const newSession: ChatSession = {
@@ -101,16 +104,24 @@ export default function Home() {
         createdAt: dbSession.created_at,
         dbId: dbSession.id,
       }
-      setSessions(prev => ({ ...prev, [dbSession.id]: newSession }))
-      setActiveSourceId(dbSession.id)
-    } catch {
-      // Fallback to local if Supabase fails
-      const localId = intro.source_id
-      setSessions(prev => ({ ...prev, [localId]: { sourceId: intro.source_id, sourceTitle: title, kbId: activeKb, messages: [], createdAt: new Date().toISOString() } }))
-      setActiveSourceId(localId)
+      // Key by source_id (not dbId) so it matches the intro
+      setSessions(prev => ({ ...prev, [intro.source_id]: newSession }))
+      setActiveSourceId(intro.source_id)
+    } catch (e) {
+      console.warn("Session creation failed, using local:", e)
+      // Fallback to local session
+      setSessions(prev => ({
+        ...prev,
+        [intro.source_id]: {
+          sourceId: intro.source_id,
+          sourceTitle: title,
+          kbId: activeKb,
+          messages: [],
+          createdAt: new Date().toISOString(),
+        }
+      }))
+      setActiveSourceId(intro.source_id)
     }
-    setPendingIntro(intro)
-    setMobileTab("chat")
   }
 
   function handleSelectSession(sourceId: string) {
