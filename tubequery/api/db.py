@@ -10,14 +10,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from supabase import Client
-
 logger = logging.getLogger(__name__)
 
 
 # ── User profiles ────────────────────────────────────────────────────
 
-def upsert_user(db: Client, user_id: str, email: str | None = None) -> dict:
+def upsert_user(db: Any, user_id: str, email: str | None = None) -> dict:
     """Create or update a user profile. Called on every authenticated request."""
     data = {"id": user_id}
     if email:
@@ -26,14 +24,14 @@ def upsert_user(db: Client, user_id: str, email: str | None = None) -> dict:
     return result.data[0] if result.data else {}
 
 
-def get_user(db: Client, user_id: str) -> dict | None:
+def get_user(db: Any, user_id: str) -> dict | None:
     result = db.table("user_profiles").select("*").eq("id", user_id).single().execute()
     return result.data
 
 
 # ── Knowledge bases ──────────────────────────────────────────────────
 
-def get_or_create_kb(db: Client, user_id: str, name: str) -> dict:
+def get_or_create_kb(db: Any, user_id: str, name: str) -> dict:
     """Get a KB by name, creating it if it doesn't exist."""
     result = db.table("knowledge_bases").select("*").eq("user_id", user_id).eq("name", name).execute()
     if result.data:
@@ -42,18 +40,18 @@ def get_or_create_kb(db: Client, user_id: str, name: str) -> dict:
     return created.data[0]
 
 
-def list_kbs(db: Client, user_id: str) -> list[dict]:
+def list_kbs(db: Any, user_id: str) -> list[dict]:
     result = db.table("knowledge_bases").select("*").eq("user_id", user_id).order("created_at").execute()
     return result.data or []
 
 
-def delete_kb(db: Client, kb_id: str, user_id: str) -> None:
+def delete_kb(db: Any, kb_id: str, user_id: str) -> None:
     db.table("knowledge_bases").delete().eq("id", kb_id).eq("user_id", user_id).execute()
 
 
 # ── Sources ──────────────────────────────────────────────────────────
 
-def save_source(db: Client, user_id: str, kb_id: str, source: Any) -> dict:
+def save_source(db: Any, user_id: str, kb_id: str, source: Any) -> dict:
     """Insert or update a source record."""
     data = {
         "id": source.id,
@@ -71,7 +69,7 @@ def save_source(db: Client, user_id: str, kb_id: str, source: Any) -> dict:
     return result.data[0] if result.data else {}
 
 
-def list_sources(db: Client, user_id: str, kb_id: str | None = None) -> list[dict]:
+def list_sources(db: Any, user_id: str, kb_id: str | None = None) -> list[dict]:
     query = db.table("sources").select("*").eq("user_id", user_id)
     if kb_id:
         query = query.eq("kb_id", kb_id)
@@ -79,18 +77,18 @@ def list_sources(db: Client, user_id: str, kb_id: str | None = None) -> list[dic
     return result.data or []
 
 
-def get_source(db: Client, source_id: str, user_id: str) -> dict | None:
+def get_source(db: Any, source_id: str, user_id: str) -> dict | None:
     result = db.table("sources").select("*").eq("id", source_id).eq("user_id", user_id).single().execute()
     return result.data
 
 
-def delete_source(db: Client, source_id: str, user_id: str) -> None:
+def delete_source(db: Any, source_id: str, user_id: str) -> None:
     db.table("sources").delete().eq("id", source_id).eq("user_id", user_id).execute()
 
 
 # ── Chat sessions ────────────────────────────────────────────────────
 
-def list_sessions(db: Client, user_id: str) -> list[dict]:
+def list_sessions(db: Any, user_id: str) -> list[dict]:
     result = (
         db.table("chat_sessions")
         .select("id, source_id, source_title, kb_name, messages, created_at, updated_at")
@@ -101,7 +99,7 @@ def list_sessions(db: Client, user_id: str) -> list[dict]:
     return result.data or []
 
 
-def get_session(db: Client, session_id: str, user_id: str) -> dict | None:
+def get_session(db: Any, session_id: str, user_id: str) -> dict | None:
     result = (
         db.table("chat_sessions")
         .select("*")
@@ -113,7 +111,7 @@ def get_session(db: Client, session_id: str, user_id: str) -> dict | None:
     return result.data
 
 
-def create_session(db: Client, user_id: str, source_id: str, source_title: str, kb_name: str) -> dict:
+def create_session(db: Any, user_id: str, source_id: str, source_title: str, kb_name: str) -> dict:
     data = {
         "user_id": user_id,
         "source_id": source_id,
@@ -125,7 +123,7 @@ def create_session(db: Client, user_id: str, source_id: str, source_title: str, 
     return result.data[0]
 
 
-def update_session_messages(db: Client, session_id: str, user_id: str, messages: list) -> dict:
+def update_session_messages(db: Any, session_id: str, user_id: str, messages: list) -> dict:
     result = (
         db.table("chat_sessions")
         .update({"messages": messages, "updated_at": "now()"})
@@ -136,13 +134,13 @@ def update_session_messages(db: Client, session_id: str, user_id: str, messages:
     return result.data[0] if result.data else {}
 
 
-def delete_session(db: Client, session_id: str, user_id: str) -> None:
+def delete_session(db: Any, session_id: str, user_id: str) -> None:
     db.table("chat_sessions").delete().eq("id", session_id).eq("user_id", user_id).execute()
 
 
 # ── Usage tracking ───────────────────────────────────────────────────
 
-def log_usage(db: Client, user_id: str, event_type: str, source_id: str | None = None, metadata: dict | None = None) -> None:
+def log_usage(db: Any, user_id: str, event_type: str, source_id: str | None = None, metadata: dict | None = None) -> None:
     """Fire-and-forget usage event logging."""
     try:
         db.table("usage_events").insert({
@@ -155,7 +153,7 @@ def log_usage(db: Client, user_id: str, event_type: str, source_id: str | None =
         logger.warning("Failed to log usage event: %s", e)
 
 
-def get_monthly_usage(db: Client, user_id: str, event_type: str) -> int:
+def get_monthly_usage(db: Any, user_id: str, event_type: str) -> int:
     """Count events of a given type in the current calendar month."""
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
@@ -180,7 +178,7 @@ PLAN_LIMITS = {
 }
 
 
-def check_limit(db: Client, user_id: str, event_type: str) -> None:
+def check_limit(db: Any, user_id: str, event_type: str) -> None:
     """
     Raises HTTPException 402 if the user has exceeded their plan limit.
     Call before any billable operation.

@@ -9,11 +9,8 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-
-from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from supabase import Client
-
+from fastapi import APIRouter, Depends, HTTPException
 from api.auth import get_current_user, get_supabase
 from api.db import (
     create_session,
@@ -40,7 +37,7 @@ class UpdateSessionRequest(BaseModel):
 @router.get("")
 def get_sessions(
     user: dict = Depends(get_current_user),
-    db: Client = Depends(get_supabase),
+    db: Any = Depends(get_supabase),
 ):
     """List all chat sessions for the current user."""
     return list_sessions(db, user["uid"])
@@ -50,7 +47,7 @@ def get_sessions(
 def post_session(
     body: CreateSessionRequest,
     user: dict = Depends(get_current_user),
-    db: Client = Depends(get_supabase),
+    db: Any = Depends(get_supabase),
 ):
     """Create a new chat session."""
     return create_session(db, user["uid"], body.source_id, body.source_title, body.kb_name)
@@ -61,7 +58,7 @@ def patch_session(
     session_id: str,
     body: UpdateSessionRequest,
     user: dict = Depends(get_current_user),
-    db: Client = Depends(get_supabase),
+    db: Any = Depends(get_supabase),
 ):
     """Update messages in a session."""
     existing = get_session(db, session_id, user["uid"])
@@ -74,7 +71,7 @@ def patch_session(
 def del_session(
     session_id: str,
     user: dict = Depends(get_current_user),
-    db: Client = Depends(get_supabase),
+    db: Any = Depends(get_supabase),
 ):
     """Delete a session."""
     existing = get_session(db, session_id, user["uid"])
