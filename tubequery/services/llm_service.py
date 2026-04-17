@@ -53,23 +53,32 @@ def _filter_citations(
     """
     import re
 
-    # Extract the SOURCES block from the answer
+    # Extract the SOURCES block
     sources_match = re.search(r"SOURCES:\s*\n((?:\s*-[^\n]+\n?)+)", answer_text, re.IGNORECASE)
 
     matched: list[Citation] = []
 
     if sources_match:
         sources_block = sources_match.group(1)
-        # Each line looks like: - [Video Title] at [MM:SS]
         for line in sources_block.splitlines():
             line = line.strip().lstrip("- ").strip()
             if not line:
                 continue
-            # Try to find a chunk whose title + timestamp appears in this line
+            # Match by title only (first 20 chars, case-insensitive) — timestamp matching
+            # is unreliable because LLMs reformat timestamps
             for chunk, score in chunks:
-                title_match = chunk.video_title.lower()[:30] in line.lower()
-                ts_match = chunk.timestamp_label in line
-                if title_match and ts_match:
+                title_fragment = chunk.video_title.lower()[:20]
+                if title_fragment and title_fragment in line.lower():
+                    matched.append(Citation(
+                        video_title=chunk.video_title,
+                        video_id=chunk.video_id,
+                        timestamp_label=chunk.timestamp_label,
+                        youtube_url=chunk.youtube_url,
+                        excerpt=chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
+                    ))
+                    break
+                # Also try matching by timestamp alone if title match fails
+                if chunk.timestamp_label in line:
                     matched.append(Citation(
                         video_title=chunk.video_title,
                         video_id=chunk.video_id,
@@ -79,7 +88,7 @@ def _filter_citations(
                     ))
                     break
 
-    # Deduplicate by timestamp
+    # Deduplicate by video_id + timestamp
     seen: set[str] = set()
     unique: list[Citation] = []
     for c in matched:
@@ -88,6 +97,21 @@ def _filter_citations(
             seen.add(key)
             unique.append(c)
 
+    # Fallback: if nothing matched, use the top-scoring chunk
+    if not unique and chunks:
+        best_chunk, _ = max(chunks, key=lambda x: x[1])
+        unique.append(Citation(
+            video_title=best_chunk.video_title,
+            video_id=best_chunk.video_id,
+            timestamp_label=best_chunk.timestamp_label,
+            youtube_url=best_chunk.youtube_url,
+            excerpt=best_chunk.text[:200] + "..." if len(best_chunk.text) > 200 else best_chunk.text,
+        ))
+
+    return unique
+
+
+# ── Interface ───────────────────────────────────────────────────────
     # Fallback: if parsing found nothing, use only the top-scoring chunk
     if not unique and chunks:
         best = max(chunks, key=lambda x: x[1])

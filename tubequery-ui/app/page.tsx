@@ -108,9 +108,9 @@ export default function Home() {
   const activeKbForChat = activeSession?.kbId ?? activeKb
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "var(--bg-base)", overflow: "hidden" }}>
-      {/* Sidebar */}
-      <div style={{ width: "240px", flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+    <div style={{ display: "flex", height: "100dvh", background: "var(--bg-base)", overflow: "hidden" }}>
+      {/* Sidebar — hidden on mobile */}
+      <div className="sidebar-panel" style={{ width: "240px", flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--bg-surface)" }}>
         <Sidebar
           activeKb={activeKb}
           activeSourceId={activeSourceId}
@@ -133,8 +133,8 @@ export default function Home() {
         />
       </div>
 
-      {/* Right panel */}
-      <div style={{ width: "340px", flexShrink: 0, borderLeft: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+      {/* Right panel — collapsible on mobile */}
+      <div className="ingest-panel" style={{ width: "340px", flexShrink: 0, borderLeft: "1px solid var(--border)", background: "var(--bg-surface)" }}>
         <IngestionPanel
           sources={sources}
           activeKb={activeKb}

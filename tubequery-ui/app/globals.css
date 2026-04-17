@@ -105,3 +105,52 @@ body::before {
 .tq-prose h3 { font-family: var(--font-syne), sans-serif; font-size: 0.975rem; font-weight: 600; color: var(--text-secondary); margin: 0.8em 0 0.3em; }
 .tq-prose code { font-family: var(--font-dm-mono), monospace; font-size: 0.875em; background: rgba(245,158,11,0.08); color: #f59e0b; padding: 0.15em 0.4em; border-radius: 4px; }
 .tq-prose blockquote { border-left: 2px solid rgba(245,158,11,0.3); padding-left: 1em; color: var(--text-secondary); font-style: italic; margin: 0.8em 0; }
+
+/* ── Mobile layout ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar-panel {
+    display: none !important;
+  }
+  .ingest-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border) !important;
+    max-height: 45vh;
+    overflow-y: auto;
+  }
+  /* Stack vertically on mobile */
+  div[style*="display: flex"][style*="height: 100dvh"] {
+    flex-direction: column !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .sidebar-panel {
+    width: 200px !important;
+  }
+  .ingest-panel {
+    width: 280px !important;
+  }
+}
+
+/* ── Source card expand animation ────────────────────────────────── */
+.source-thumb {
+  transition: width 0.35s cubic-bezier(0.16,1,0.3,1),
+              height 0.35s cubic-bezier(0.16,1,0.3,1),
+              border-radius 0.35s ease,
+              opacity 0.35s ease;
+}
+
+.source-expand-content {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.4s cubic-bezier(0.16,1,0.3,1),
+              opacity 0.3s ease 0.08s;
+}
+
+.source-expand-content.open {
+  max-height: 400px;
+  opacity: 1;
+}

@@ -31,10 +31,69 @@ export async function ingestUrl(url: string, kb_id: string): Promise<IngestRespo
   return res.json()
 }
 
+export interface IngestStreamCallbacks {
+  onStep: (step: string, detail: string) => void
+  onProgress: (current: number, total: number, video: string) => void
+  onDone: (result: IngestResponse) => void
+  onError: (error: string) => void
+}
+
+export async function streamIngest(
+  url: string,
+  kb_id: string,
+  callbacks: IngestStreamCallbacks,
+  signal?: AbortSignal
+): Promise<void> {
+  const res = await fetch(`${BASE}/ingest/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url, kb_id }),
+    signal,
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Ingestion failed" }))
+    callbacks.onError(err.detail || "Ingestion failed")
+    return
+  }
+
+  const reader = res.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split("\n")
+    buffer = lines.pop() ?? ""
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue
+      const data = line.slice(6).trim()
+      if (!data) continue
+      try {
+        const event = JSON.parse(data)
+        if (event.type === "step") callbacks.onStep(event.step, event.detail)
+        else if (event.type === "progress") callbacks.onProgress(event.current, event.total, event.video)
+        else if (event.type === "done") callbacks.onDone(event.source)
+        else if (event.type === "error") callbacks.onError(event.detail)
+      } catch { /* skip */ }
+    }
+  }
+}
+
 export async function getIntro(source_id: string): Promise<IntroData> {
   const res = await fetch(`${BASE}/ingest/${source_id}/intro`)
   if (!res.ok) throw new Error("Failed to generate intro")
   return res.json()
+}
+
+// ── YouTube thumbnail ────────────────────────────────────────────────
+
+export function getYoutubeThumbnail(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+  if (!match) return null
+  return `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`
 }
 
 // ── Chat streaming ───────────────────────────────────────────────────
