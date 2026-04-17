@@ -28,6 +28,7 @@ export interface Message {
 
 export interface IntroData {
   source_id: string
+  source_title: string
   intro: string
   topics: string[]
   questions: string[]

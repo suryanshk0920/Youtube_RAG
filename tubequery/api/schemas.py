@@ -29,6 +29,7 @@ class IngestResponse(BaseModel):
 
 class IntroResponse(BaseModel):
     source_id: str
+    source_title: str = ""
     intro: str
     topics: list[str]
     questions: list[str]

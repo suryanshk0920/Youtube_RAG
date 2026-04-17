@@ -44,7 +44,9 @@ export default function Home() {
     fetchSessions().then(dbSessions => {
       const map: Record<string, ChatSession> = {}
       for (const s of dbSessions) {
-        map[s.id] = {
+        // Key by source_id so it matches handleIntroReady
+        const key = s.source_id
+        map[key] = {
           sourceId: s.source_id,
           sourceTitle: s.source_title,
           kbId: s.kb_name,
@@ -86,30 +88,31 @@ export default function Home() {
   }
 
   async function handleIntroReady(intro: IntroData) {
+    await loadSources()
     const source = allSources.find(s => s.id === intro.source_id)
-    const title = source?.title ?? intro.source_id
+    // Prefer source_title from intro response (most accurate)
+    const title = intro.source_title || source?.title || intro.source_id
 
-    // Show intro immediately
+    // Show intro immediately — don't wait for Supabase
     setPendingIntro(intro)
     setMobileTab("chat")
 
-    // Create session in Supabase (async, non-blocking)
+    // Create session in Supabase async
     try {
       const dbSession = await createDBSession(intro.source_id, title, activeKb)
-      const newSession: ChatSession = {
-        sourceId: intro.source_id,
-        sourceTitle: title,
-        kbId: activeKb,
-        messages: [],
-        createdAt: dbSession.created_at,
-        dbId: dbSession.id,
-      }
-      // Key by source_id (not dbId) so it matches the intro
-      setSessions(prev => ({ ...prev, [intro.source_id]: newSession }))
-      setActiveSourceId(intro.source_id)
+      setSessions(prev => ({
+        ...prev,
+        [intro.source_id]: {
+          sourceId: intro.source_id,
+          sourceTitle: title,
+          kbId: activeKb,
+          messages: [],
+          createdAt: dbSession.created_at,
+          dbId: dbSession.id,
+        }
+      }))
     } catch (e) {
       console.warn("Session creation failed, using local:", e)
-      // Fallback to local session
       setSessions(prev => ({
         ...prev,
         [intro.source_id]: {
@@ -120,8 +123,8 @@ export default function Home() {
           createdAt: new Date().toISOString(),
         }
       }))
-      setActiveSourceId(intro.source_id)
     }
+    setActiveSourceId(intro.source_id)
   }
 
   function handleSelectSession(sourceId: string) {

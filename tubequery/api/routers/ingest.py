@@ -141,20 +141,32 @@ def get_intro(
     from models.source import Source, SourceType, IngestionStatus
     row = result.data[0]
     # Use kb_name (the string name) for ChromaDB lookups, not the UUID
-    kb_for_chroma = row.get("kb_name") or row["kb_id"]
+    # Fall back to "default" if kb_name not yet populated
+    kb_for_chroma = row.get("kb_name") or "default"
     source = Source(
         id=row["id"], url=row["url"],
         source_type=SourceType(row["source_type"]),
         title=row["title"], kb_id=kb_for_chroma,
         status=IngestionStatus(row["status"]),
-        video_count=row["video_count"], chunk_count=row["chunk_count"],
+        video_count=row.get("video_count", 0),
+        chunk_count=row.get("chunk_count", 0),
     )
 
     try:
         data = generate_intro(source=source, embedding_service=embedding_service,
                               vector_store=vector_store, llm_service=llm_service)
-        return IntroResponse(source_id=source_id, intro=data.get("intro", ""),
-                             topics=data.get("topics", []), questions=data.get("questions", []))
+        intro_text = data.get("intro", "")
+        topics = data.get("topics", [])
+        questions = data.get("questions", [])
+
+        # If intro is just the fallback message, the LLM call failed — return error
+        if not topics and not questions and "chunks" in intro_text:
+            raise HTTPException(status_code=500, detail="Could not generate summary — try again")
+
+        return IntroResponse(source_id=source_id, source_title=source.title,
+                             intro=intro_text, topics=topics, questions=questions)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Intro generation failed")
         raise HTTPException(status_code=500, detail=str(e))
