@@ -52,14 +52,17 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, onIntroDismi
 
     // Track citations separately so we can save them all at once on done
     const collectedCitations: Citation[] = []
+    // Accumulate content locally to avoid stale closure issues
+    let accumulatedContent = ""
 
     await streamChat(
       question.trim(), activeKb, history,
       {
         onToken: token => {
+          accumulatedContent += token
           const latest = messagesRef.current
           onMessagesChange(latest.map(m =>
-            m.id === assistantId ? { ...m, content: m.content + token } : m
+            m.id === assistantId ? { ...m, content: accumulatedContent } : m
           ))
         },
         onCitation: (citation: Citation) => {
@@ -79,9 +82,10 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, onIntroDismi
               .replace(/\n*\(Context from videos:[\s\S]*$/i, "")
               .replace(/\n*\(Sources:[\s\S]*$/i, "")
               .trim()
+          const cleanContent = stripSources(accumulatedContent)
           onMessagesChange(latest.map(m =>
             m.id === assistantId
-              ? { ...m, isStreaming: false, citations: [...collectedCitations], content: stripSources(m.content) }
+              ? { ...m, isStreaming: false, citations: [...collectedCitations], content: cleanContent }
               : m
           ))
           setIsStreaming(false)
