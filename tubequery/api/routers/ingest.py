@@ -81,8 +81,9 @@ def ingest_stream(
     try:
         check_limit(db, uid, "ingest")
     except HTTPException as e:
-        def limit_error():
-            yield f"data: {json.dumps({'type': 'error', 'detail': e.detail if isinstance(e.detail, str) else e.detail.get('message', 'Limit exceeded')})}\n\n"
+        error_msg = e.detail if isinstance(e.detail, str) else e.detail.get("message", "Limit exceeded")
+        def limit_error(msg=error_msg):
+            yield f"data: {json.dumps({'type': 'error', 'detail': msg})}\n\n"
         return StreamingResponse(limit_error(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
