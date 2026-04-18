@@ -78,7 +78,7 @@ export default function Home() {
     } catch { /* API not ready */ }
   }, [activeKb])
 
-  useEffect(() => { loadSources() }, [loadSources])
+  useEffect(() => { loadSources(true) }, [loadSources])
 
   function handleMessagesChange(sourceId: string, messages: Message[]) {
     const existing = sessions[sourceId]
@@ -165,6 +165,10 @@ export default function Home() {
     setActiveSourceId(null)
     setPendingIntro(null)
     setMobileTab("chat")
+    // Immediately filter from cached allSources
+    setSources(allSources.filter(s => (s.kb_name ?? s.kb_id) === kb))
+    // Reset TTL so next loadSources call fetches fresh
+    sourcesLastFetched.current = 0
   }
 
   const activeSession = activeSourceId ? sessions[activeSourceId] : null
