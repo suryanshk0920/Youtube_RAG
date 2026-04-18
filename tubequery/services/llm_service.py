@@ -294,12 +294,10 @@ class OpenRouterLLMService(LLMService):
         response.raise_for_status()
         full_text = response.json()["choices"][0]["message"].get("content", "")
 
-        # Yield word by word for streaming effect in the UI
-        import re
-        tokens = re.split(r'(\s+)', full_text)
-        for token in tokens:
-            if token:
-                yield token
+        # Yield in small chunks for streaming effect
+        chunk_size = 4  # characters per chunk
+        for i in range(0, len(full_text), chunk_size):
+            yield full_text[i:i + chunk_size]
 
     def answer(
         self,
