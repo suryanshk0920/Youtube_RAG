@@ -260,8 +260,8 @@ class OpenRouterLLMService(LLMService):
         history: list[dict],
     ):
         """
-        Stream answer tokens from OpenRouter using SSE.
-        Yields text delta strings as they arrive.
+        Get full answer from OpenRouter (blocking), then yield it word by word.
+        This avoids SSE parsing issues with partial TCP chunks.
         """
         if not chunks:
             yield "I could not find relevant information in the ingested videos."
@@ -285,32 +285,21 @@ class OpenRouterLLMService(LLMService):
         payload = {
             "model": config.OPENROUTER_MODEL,
             "messages": messages,
-            "stream": True,
         }
 
-        import json as _json
-        with self._http.stream(
-            "POST", self._API_URL, headers=self._headers, json=payload
-        ) as response:
-            response.raise_for_status()
-            buffer = ""
-            for raw_chunk in response.iter_bytes():
-                buffer += raw_chunk.decode("utf-8", errors="replace")
-                # SSE events are separated by double newlines
-                while "\n\n" in buffer:
-                    event, buffer = buffer.split("\n\n", 1)
-                    for line in event.splitlines():
-                        line = line.strip()
-                        if not line or line == "data: [DONE]":
-                            continue
-                        if line.startswith("data: "):
-                            try:
-                                chunk_data = _json.loads(line[6:])
-                                delta = chunk_data["choices"][0]["delta"].get("content")
-                                if delta:
-                                    yield delta
-                            except Exception:
-                                continue
+        # Blocking call — get full response
+        response = self._http.post(
+            self._API_URL, headers=self._headers, json=payload
+        )
+        response.raise_for_status()
+        full_text = response.json()["choices"][0]["message"].get("content", "")
+
+        # Yield word by word for streaming effect in the UI
+        import re
+        tokens = re.split(r'(\s+)', full_text)
+        for token in tokens:
+            if token:
+                yield token
 
     def answer(
         self,
