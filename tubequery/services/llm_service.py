@@ -30,18 +30,18 @@ RULES:
 1. Only use information from the provided context excerpts.
 2. If the context does not contain enough information, say: "I could not find relevant information in the ingested videos."
 3. Never make up information not present in the excerpts.
-4. Only cite sources you genuinely drew from.
+4. Do NOT include any context references, timestamps, or source labels inside your answer text.
 
 FORMATTING:
-- Do NOT start with "Answer:" — just begin your response directly.
+- Do NOT start with "Answer:" — begin your response directly.
 - Start with a 1-2 sentence direct answer.
 - Use bullet points to break down details.
 - Use **bold** for key terms.
 - Aim for 150-300 words.
-- End with a SOURCES section. Use EXACTLY this format, no brackets, no pipes:
-  SOURCES:
-  - Video Title at MM:SS
-  - Video Title at MM:SS
+- After your answer, add a blank line, then write SOURCES exactly like this:
+
+SOURCES:
+- Video Title at MM:SS
 """
 
 
