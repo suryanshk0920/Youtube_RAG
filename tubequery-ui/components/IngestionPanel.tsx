@@ -8,6 +8,7 @@ interface Props {
   activeKb: string
   onSourcesChange: () => void
   onIntroReady: (intro: IntroData) => void
+  onSummarising: () => void
 }
 
 function Spinner() {
@@ -20,15 +21,16 @@ function Spinner() {
 }
 
 const STEP_LABELS: Record<string, string> = {
-  fetch:   "Fetching transcript…",
-  chunk:   "Chunking text…",
-  embed:   "Generating embeddings…",
-  store:   "Storing vectors…",
-  done:    "Complete!",
-  cached:  "Already indexed",
+  fetch:       "Reading transcript…",
+  chunk:       "Processing text…",
+  embed:       "Building search index…",
+  store:       "Saving to library…",
+  done:        "Indexed!",
+  cached:      "Already in library",
+  summarising: "Generating summary…",
 }
 
-export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroReady }: Props) {
+export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroReady, onSummarising }: Props) {
   const [url, setUrl] = useState("")
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState<string | null>(null)
@@ -60,6 +62,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
           setRetryUrl(null)
           onSourcesChange()
           setStep("summarising")
+          onSummarising()  // tell chat panel to show loading state
           try {
             const intro = await getIntro(result.source_id)
             onIntroReady(intro)

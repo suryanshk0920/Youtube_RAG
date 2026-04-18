@@ -9,12 +9,13 @@ interface Props {
   activeKb: string
   activeSourceId: string | null
   pendingIntro: IntroData | null
+  generatingSummary: boolean
   onIntroDismiss: () => void
   messages: Message[]
   onMessagesChange: (messages: Message[]) => void
 }
 
-export function ChatPanel({ activeKb, activeSourceId, pendingIntro, onIntroDismiss: _, messages, onMessagesChange }: Props) {
+export function ChatPanel({ activeKb, activeSourceId, pendingIntro, generatingSummary, onIntroDismiss: _, messages, onMessagesChange }: Props) {
   const [input, setInput] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -116,6 +117,27 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, onIntroDismi
 
           {pendingIntro && (
             <IntroCard intro={pendingIntro} onQuestionSelect={q => sendMessage(q)} />
+          )}
+
+          {/* Summary generating skeleton */}
+          {generatingSummary && !pendingIntro && (
+            <div className="animate-fade-in animate-glow-breathe" style={{
+              borderRadius: "16px", border: "1px solid var(--border-warm)",
+              background: "linear-gradient(135deg, rgba(245,158,11,0.05) 0%, var(--bg-surface) 60%)",
+              padding: "20px", marginBottom: "24px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
+                <div style={{ width: "24px", height: "24px", borderRadius: "7px", background: "var(--amber-dim)", border: "1px solid var(--border-warm)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-syne), sans-serif", fontWeight: 700, fontSize: "0.6rem", color: "var(--amber)" }}>TQ</div>
+                <span style={{ fontFamily: "var(--font-syne), sans-serif", fontWeight: 600, fontSize: "0.8rem", color: "var(--text-secondary)", letterSpacing: "0.02em" }}>GENERATING SUMMARY</span>
+                <svg className="animate-spin-slow" width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ marginLeft: "auto" }}>
+                  <circle cx="7" cy="7" r="5.5" stroke="var(--amber)" strokeWidth="1.5" strokeOpacity="0.2" />
+                  <path d="M7 1.5A5.5 5.5 0 0 1 12.5 7" stroke="var(--amber)" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+              {[100, 85, 92, 70].map((w, i) => (
+                <div key={i} style={{ height: "10px", borderRadius: "5px", background: "var(--border)", marginBottom: "8px", width: `${w}%`, opacity: 0.3 + i * 0.05 }} />
+              ))}
+            </div>
           )}
 
           {!pendingIntro && messages.length === 0 && (

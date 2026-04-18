@@ -21,7 +21,8 @@ def list_sources(
     """List sources for the current user only."""
     rows = db.table("sources").select("*").eq("user_id", user["uid"])
     if kb_id:
-        rows = rows.eq("kb_id", kb_id)
+        # Filter by kb_name (the string name), not the UUID
+        rows = rows.eq("kb_name", kb_id)
     result = rows.order("created_at", desc=True).execute()
     return result.data or []
 

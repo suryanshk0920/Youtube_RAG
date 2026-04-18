@@ -31,6 +31,7 @@ export default function Home() {
   const [sessions, setSessions] = useState<Record<string, ChatSession>>({})
   // Mobile tab: "chat" | "add" | "library"
   const [mobileTab, setMobileTab] = useState<"chat" | "add" | "library">("chat")
+  const [generatingSummary, setGeneratingSummary] = useState(false)
   const isMobile = useIsMobile()
 
   // Redirect to login if not authenticated
@@ -90,6 +91,7 @@ export default function Home() {
   }
 
   async function handleIntroReady(intro: IntroData) {
+    setGeneratingSummary(false)  // summary arrived
     await loadSources()
     const source = allSources.find(s => s.id === intro.source_id)
     // Prefer source_title from intro response (most accurate)
@@ -171,8 +173,9 @@ export default function Home() {
 
   const chatProps = {
     activeKb: activeKbForChat,
-    activeSourceId,   // pass so chat scopes to this video's chunks
+    activeSourceId,
     pendingIntro,
+    generatingSummary,
     onIntroDismiss: () => setPendingIntro(null),
     messages: activeMessages,
     onMessagesChange: (msgs: Message[]) => activeSourceId && handleMessagesChange(activeSourceId, msgs),
@@ -182,6 +185,7 @@ export default function Home() {
     sources, activeKb,
     onSourcesChange: loadSources,
     onIntroReady: handleIntroReady,
+    onSummarising: () => { setGeneratingSummary(true); setMobileTab("chat") },
   }
 
   return (
