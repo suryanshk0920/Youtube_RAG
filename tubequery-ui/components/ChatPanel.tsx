@@ -74,8 +74,6 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, onIntroDismi
           ))
         },
         onDone: () => {
-          const latest = messagesRef.current
-          // Strip SOURCES/Context block from the end of the complete answer
           const stripSources = (text: string) =>
             text
               .replace(/\n*SOURCES:[\s\S]*$/i, "")
@@ -83,7 +81,8 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, onIntroDismi
               .replace(/\n*\(Sources:[\s\S]*$/i, "")
               .trim()
           const cleanContent = stripSources(accumulatedContent)
-          onMessagesChange(latest.map(m =>
+          // Use functional update to avoid stale closure — always based on latest state
+          onMessagesChange(messagesRef.current.map(m =>
             m.id === assistantId
               ? { ...m, isStreaming: false, citations: [...collectedCitations], content: cleanContent }
               : m

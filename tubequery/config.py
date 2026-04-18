@@ -30,7 +30,7 @@ CHUNK_OVERLAP: int = 15         # overlap between consecutive chunks (words)
 
 # ── Retrieval Settings ─────────────────────────────────────────────
 TOP_K: int = 8                  # chunks to retrieve per query
-MIN_RELEVANCE_SCORE: float = 0.1  # similarity threshold (cosine)
+MIN_RELEVANCE_SCORE: float = 0.0  # accept all retrieved chunks, let LLM decide relevance
 
 # ── Embedding Model ────────────────────────────────────────────────
 EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
