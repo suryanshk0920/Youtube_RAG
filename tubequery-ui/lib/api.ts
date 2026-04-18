@@ -176,7 +176,8 @@ export async function streamChat(
             console.warn("SSE parse error:", data.slice(0, 50), e)
           }
         }
-      }    }
+      }
+    }
   } catch (err: unknown) {
     // AbortError is expected when user stops the stream — not a real error
     if (err instanceof Error && err.name === "AbortError") return
