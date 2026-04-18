@@ -260,8 +260,8 @@ class OpenRouterLLMService(LLMService):
         history: list[dict],
     ):
         """
-        Get full answer from OpenRouter (blocking), then yield it word by word.
-        This avoids SSE parsing issues with partial TCP chunks.
+        Stream answer tokens using the OpenAI SDK pointed at OpenRouter.
+        Handles SSE correctly — no dropped characters.
         """
         if not chunks:
             yield "I could not find relevant information in the ingested videos."
@@ -282,22 +282,20 @@ class OpenRouterLLMService(LLMService):
             messages.append(msg)
         messages.append({"role": "user", "content": prompt})
 
-        payload = {
-            "model": config.OPENROUTER_MODEL,
-            "messages": messages,
-        }
-
-        # Blocking call — get full response
-        response = self._http.post(
-            self._API_URL, headers=self._headers, json=payload
+        from openai import OpenAI
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=config.OPENROUTER_API_KEY,
         )
-        response.raise_for_status()
-        full_text = response.json()["choices"][0]["message"].get("content", "")
-
-        # Yield in small chunks for streaming effect
-        chunk_size = 4  # characters per chunk
-        for i in range(0, len(full_text), chunk_size):
-            yield full_text[i:i + chunk_size]
+        stream = client.chat.completions.create(
+            model=config.OPENROUTER_MODEL,
+            messages=messages,
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
 
     def answer(
         self,
