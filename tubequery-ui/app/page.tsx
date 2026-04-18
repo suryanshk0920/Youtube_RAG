@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChatPanel } from "@/components/ChatPanel"
 import { IngestionPanel } from "@/components/IngestionPanel"
@@ -60,7 +60,10 @@ export default function Home() {
     })
   }, [user])
 
-  const loadSources = useCallback(async () => {
+  const sourcesLastFetched = useRef<number>(0)
+
+  const loadSources = useCallback(async (force = false) => {
+    if (!force && Date.now() - sourcesLastFetched.current < 30_000) return
     try {
       const all = await getSources()
       setAllSources(all)
@@ -71,6 +74,7 @@ export default function Home() {
         counts[key] = (counts[key] ?? 0) + s.chunk_count
       }
       setChunkCounts(counts)
+      sourcesLastFetched.current = Date.now()
     } catch { /* API not ready */ }
   }, [activeKb])
 
@@ -186,7 +190,7 @@ export default function Home() {
 
   const ingestProps = {
     sources, activeKb,
-    onSourcesChange: loadSources,
+    onSourcesChange: () => loadSources(true),  // force refresh after ingestion
     onIntroReady: handleIntroReady,
     onSummarising: () => { setGeneratingSummary(true); setMobileTab("chat") },
   }

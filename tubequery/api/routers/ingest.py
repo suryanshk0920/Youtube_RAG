@@ -139,10 +139,21 @@ def get_intro(
     if not result.data:
         raise HTTPException(status_code=404, detail="Source not found")
 
-    from models.source import Source, SourceType, IngestionStatus
     row = result.data[0]
-    # Use kb_name (the string name) for ChromaDB lookups, not the UUID
-    # Fall back to "default" if kb_name not yet populated
+
+    # ── Return cached intro if available ────────────────────────────
+    cached = row.get("intro_cache")
+    if cached and cached.get("intro"):
+        logger.info("Returning cached intro for source %s", source_id)
+        return IntroResponse(
+            source_id=source_id,
+            source_title=row.get("title", ""),
+            intro=cached.get("intro", ""),
+            topics=cached.get("topics", []),
+            questions=cached.get("questions", []),
+        )
+
+    from models.source import Source, SourceType, IngestionStatus
     kb_for_chroma = row.get("kb_name") or "default"
     source = Source(
         id=row["id"], url=row["url"],
@@ -160,9 +171,16 @@ def get_intro(
         topics = data.get("topics", [])
         questions = data.get("questions", [])
 
-        # If intro is just the fallback message, the LLM call failed — return error
         if not topics and not questions and "chunks" in intro_text:
             raise HTTPException(status_code=500, detail="Could not generate summary — try again")
+
+        # ── Cache the result in Supabase ─────────────────────────────
+        try:
+            db.table("sources").update({
+                "intro_cache": {"intro": intro_text, "topics": topics, "questions": questions}
+            }).eq("id", source_id).eq("user_id", user["uid"]).execute()
+        except Exception as cache_err:
+            logger.warning("Failed to cache intro: %s", cache_err)
 
         return IntroResponse(source_id=source_id, source_title=source.title,
                              intro=intro_text, topics=topics, questions=questions)

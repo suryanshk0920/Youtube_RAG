@@ -37,15 +37,14 @@ class EmbeddingService(ABC):
 class MiniLMEmbeddingService(EmbeddingService):
     """
     Local embeddings using sentence-transformers all-MiniLM-L6-v2.
-
-    - Model is downloaded once to ~/.cache/huggingface/ and reused.
-    - Produces 384-dimensional vectors.
-    - Runs entirely on CPU/GPU locally — no API calls.
+    Includes an in-memory LRU cache for single embeddings (queries).
     """
 
     def __init__(self) -> None:
         logger.info("Loading embedding model: %s", config.EMBEDDING_MODEL)
         self._model = SentenceTransformer(config.EMBEDDING_MODEL)
+        self._cache: dict[str, list[float]] = {}  # simple in-memory cache
+        self._cache_max = 1000  # max cached queries
         logger.info("Embedding model loaded successfully.")
 
     def embed(self, texts: list[str]) -> list[list[float]]:
@@ -57,7 +56,16 @@ class MiniLMEmbeddingService(EmbeddingService):
         return vectors.tolist()
 
     def embed_single(self, text: str) -> list[float]:
-        return self.embed([text])[0]
+        # Check cache first
+        if text in self._cache:
+            return self._cache[text]
+        result = self.embed([text])[0]
+        # Evict oldest if at capacity
+        if len(self._cache) >= self._cache_max:
+            oldest = next(iter(self._cache))
+            del self._cache[oldest]
+        self._cache[text] = result
+        return result
 
 
 # ── Future implementations (swap in app.py to use) ─────────────────
