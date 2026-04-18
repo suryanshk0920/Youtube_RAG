@@ -198,9 +198,13 @@ export interface DBSession {
 }
 
 export async function fetchSessions(): Promise<DBSession[]> {
-  const res = await fetch(`${BASE}/sessions`, { headers: await authHeaders() })
-  if (!res.ok) return []
-  return res.json()
+  try {
+    const res = await fetch(`${BASE}/sessions`, { headers: await authHeaders() })
+    if (!res.ok) return []
+    return res.json()
+  } catch {
+    return []
+  }
 }
 
 export async function createDBSession(source_id: string, source_title: string, kb_name: string): Promise<DBSession> {
