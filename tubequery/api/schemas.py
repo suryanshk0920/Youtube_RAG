@@ -5,8 +5,8 @@ Pydantic models for all request and response bodies.
 """
 
 from __future__ import annotations
-
-from pydantic import BaseModel, Field
+import re
+from pydantic import BaseModel, Field, validator
 
 
 # ── Ingest ──────────────────────────────────────────────────────────
@@ -48,6 +48,45 @@ class ChatRequest(BaseModel):
     kb_id: str = "default"
     history: list[ChatMessage] = Field(default_factory=list)
     source_ids: list[str] | None = None  # None = search all sources in KB
+    
+    @validator('question')
+    def validate_question(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Question cannot be empty')
+        
+        # Length limit
+        if len(v) > 2000:
+            raise ValueError('Question too long (max 2000 characters)')
+        
+        # Basic prompt injection patterns
+        suspicious_patterns = [
+            r'ignore\s+(?:previous|all|above|prior)\s+(?:instructions?|prompts?|rules?)',
+            r'forget\s+(?:everything|all|previous|above)',
+            r'you\s+are\s+now\s+(?:a|an)\s+\w+',
+            r'act\s+as\s+(?:a|an)\s+\w+',
+            r'pretend\s+(?:to\s+be|you\s+are)',
+            r'roleplay\s+as',
+            r'system\s*:',
+            r'assistant\s*:',
+            r'human\s*:',
+            r'<\s*/?system\s*>',
+            r'<\s*/?assistant\s*>',
+            r'<\s*/?human\s*>',
+            r'\\n\\n(?:system|assistant|human)\s*:',
+        ]
+        
+        v_lower = v.lower()
+        for pattern in suspicious_patterns:
+            if re.search(pattern, v_lower, re.IGNORECASE):
+                raise ValueError('Invalid input detected')
+        
+        return v.strip()
+    
+    @validator('kb_id')
+    def validate_kb_id(cls, v):
+        if not re.match(r'^[a-zA-Z0-9_-]+$', v):
+            raise ValueError('Invalid knowledge base name')
+        return v
 
 
 class CitationOut(BaseModel):

@@ -78,7 +78,11 @@ export default function Home() {
     } catch { /* API not ready */ }
   }, [activeKb])
 
-  useEffect(() => { loadSources(true) }, [loadSources])
+  useEffect(() => { 
+    if (user) {
+      loadSources(true) 
+    }
+  }, [user, loadSources])
 
   function handleMessagesChange(sourceId: string, messages: Message[]) {
     const existing = sessions[sourceId]
@@ -104,7 +108,25 @@ export default function Home() {
     // Prefer source_title from intro response (most accurate)
     const title = intro.source_title || source?.title || intro.source_id
 
-    // Show intro immediately — don't wait for Supabase
+    // Check if we already have a session for this source
+    const existingSession = sessions[intro.source_id]
+    
+    if (existingSession) {
+      // If session exists, add summary as a new message at the end
+      const summaryMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "summary",
+        content: intro.intro,
+        summaryData: intro,
+      }
+      const updatedMessages = [...existingSession.messages, summaryMessage]
+      handleMessagesChange(intro.source_id, updatedMessages)
+      setActiveSourceId(intro.source_id)
+      setMobileTab("chat")
+      return
+    }
+
+    // New session - show intro at top via pendingIntro
     setPendingIntro(intro)
     setMobileTab("chat")
 

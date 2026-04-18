@@ -20,6 +20,7 @@ from api.routers import sessions
 from api.routers import profile
 from api.routers import kbs
 from api.schemas import HealthResponse
+from middleware.rate_limit import RateLimitMiddleware
 import config
 
 # ── Logging ─────────────────────────────────────────────────────────
@@ -37,6 +38,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# ── Rate Limiting ────────────────────────────────────────────────────
+app.add_middleware(RateLimitMiddleware, requests_per_minute=60)
 
 # ── CORS ─────────────────────────────────────────────────────────────
 # In production, replace "*" with your Next.js domain

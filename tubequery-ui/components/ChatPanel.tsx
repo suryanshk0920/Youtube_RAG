@@ -75,17 +75,12 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, generatingSu
           ))
         },
         onDone: () => {
-          const stripSources = (text: string) =>
-            text
-              .replace(/\n*SOURCES:[\s\S]*$/i, "")
-              .replace(/\n*\(Context from videos:[\s\S]*$/i, "")
-              .replace(/\n*\(Sources:[\s\S]*$/i, "")
-              .trim()
-          const cleanContent = stripSources(accumulatedContent)
+          // Keep the sources section instead of stripping it
+          const finalContent = accumulatedContent.trim()
           // Use functional update to avoid stale closure — always based on latest state
           onMessagesChange(messagesRef.current.map(m =>
             m.id === assistantId
-              ? { ...m, isStreaming: false, citations: [...collectedCitations], content: cleanContent }
+              ? { ...m, isStreaming: false, citations: [...collectedCitations], content: finalContent }
               : m
           ))
           setIsStreaming(false)
@@ -115,10 +110,6 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, generatingSu
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 0 16px" }}>
         <div style={{ maxWidth: "780px", margin: "0 auto", padding: "0 16px" }}>
 
-          {pendingIntro && (
-            <IntroCard intro={pendingIntro} onQuestionSelect={q => sendMessage(q)} />
-          )}
-
           {/* Summary generating skeleton */}
           {generatingSummary && !pendingIntro && (
             <div className="animate-fade-in animate-glow-breathe" style={{
@@ -140,7 +131,7 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, generatingSu
             </div>
           )}
 
-          {!pendingIntro && messages.length === 0 && (
+          {!pendingIntro && !generatingSummary && messages.length === 0 && (
             <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", paddingTop: "80px", paddingBottom: "60px" }}>
               <div style={{
                 width: "52px", height: "52px", borderRadius: "14px",
@@ -161,29 +152,36 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, generatingSu
             </div>
           )}
 
-          {messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}
+          {pendingIntro && (
+            <IntroCard intro={pendingIntro} onQuestionSelect={q => sendMessage(q)} />
+          )}
+
+          {messages.map(msg => <MessageBubble key={msg.id} message={msg} onQuestionSelect={q => sendMessage(q)} />)}
+
           <div ref={bottomRef} />
         </div>
       </div>
 
       {/* Input */}
-      <div style={{ padding: "12px 0 24px" }}>
+      <div style={{ padding: "16px 0 28px" }}>
         <div style={{ maxWidth: "780px", margin: "0 auto", padding: "0 16px" }}>
           <div
             style={{
-              display: "flex", alignItems: "flex-end", gap: "10px",
-              padding: "12px 14px", borderRadius: "14px",
-              border: "1px solid var(--border)", background: "var(--bg-elevated)",
-              transition: "border-color 0.18s, box-shadow 0.18s",
+              display: "flex", alignItems: "center", gap: "12px",
+              padding: "12px 16px", borderRadius: "16px",
+              border: "1px solid rgba(255,255,255,0.06)", 
+              background: "rgba(34,42,61,0.7)",
+              backdropFilter: "blur(20px)",
+              transition: "border-color 0.2s, box-shadow 0.2s",
             }}
             onFocusCapture={e => {
               const el = e.currentTarget as HTMLElement
-              el.style.borderColor = "rgba(245,158,11,0.3)"
-              el.style.boxShadow = "0 0 0 3px rgba(245,158,11,0.05)"
+              el.style.borderColor = "rgba(208,188,255,0.3)"
+              el.style.boxShadow = "0 0 0 3px rgba(208,188,255,0.08)"
             }}
             onBlurCapture={e => {
               const el = e.currentTarget as HTMLElement
-              el.style.borderColor = "var(--border)"
+              el.style.borderColor = "rgba(255,255,255,0.06)"
               el.style.boxShadow = "none"
             }}
           >
@@ -196,29 +194,47 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, generatingSu
               rows={1}
               style={{
                 flex: 1, background: "transparent", border: "none", outline: "none",
-                resize: "none", fontSize: "0.975rem", color: "var(--text-primary)",
+                resize: "none", fontSize: "0.95rem", color: "var(--text-primary)",
                 fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.6,
+                padding: 0,
               }}
             />
             <button
               onClick={isStreaming ? stopStream : () => sendMessage(input)}
               disabled={!isStreaming && !input.trim()}
               style={{
-                flexShrink: 0, width: "32px", height: "32px", borderRadius: "9px",
-                border: "1px solid var(--border-warm)",
-                background: isStreaming ? "rgba(248,113,113,0.1)" : "var(--amber-dim)",
-                color: isStreaming ? "#fca5a5" : "var(--amber)",
+                flexShrink: 0, 
+                padding: "10px 20px", 
+                borderRadius: "10px",
+                border: "none",
+                background: isStreaming 
+                  ? "rgba(248,113,113,0.15)" 
+                  : "linear-gradient(135deg, #ffb95f 0%, #b17000 100%)",
+                color: isStreaming ? "#fca5a5" : "#472a00",
                 cursor: (!isStreaming && !input.trim()) ? "not-allowed" : "pointer",
-                opacity: (!isStreaming && !input.trim()) ? 0.3 : 1,
+                opacity: (!isStreaming && !input.trim()) ? 0.4 : 1,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "0.85rem", transition: "all 0.18s",
+                fontSize: "0.75rem", 
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                transition: "all 0.2s",
+                fontFamily: "var(--font-syne), sans-serif",
+              }}
+              onMouseEnter={e => {
+                if (!isStreaming && input.trim()) {
+                  (e.currentTarget as HTMLElement).style.transform = "scale(1.02)"
+                }
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.transform = "scale(1)"
               }}
             >
-              {isStreaming ? "■" : "↑"}
+              {isStreaming ? "Stop" : "Send"}
             </button>
           </div>
-          <p style={{ textAlign: "center", fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "8px", fontFamily: "var(--font-dm-mono), monospace" }}>
-            enter to send · shift+enter for newline
+          <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "10px", fontFamily: "var(--font-dm-mono), monospace", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+            Precision Engine • Enter to send
           </p>
         </div>
       </div>

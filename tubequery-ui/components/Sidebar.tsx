@@ -1,7 +1,8 @@
 "use client"
 import { useEffect, useState } from "react"
 import { useAuth } from "@/context/AuthContext"
-import { createKB, deleteKB, fetchKBs, type KB } from "@/lib/api"
+import { createKB, fetchKBs, type KB } from "@/lib/api"
+import { UpgradeModal } from "./UpgradeModal"
 import type { ChatSession } from "@/types"
 
 interface Props {

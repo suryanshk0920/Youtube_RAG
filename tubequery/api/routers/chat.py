@@ -18,6 +18,7 @@ from api.db import log_usage, upsert_user
 from api.dependencies import get_embedding_service, get_llm_service, get_vector_store
 from api.schemas import ChatRequest, ChatResponse, CitationOut
 from core.retriever import ask
+from utils.security import sanitize_input, SECURITY_HEADERS
 import config
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,9 @@ def chat(
 ):
     """Ask a question against an ingested knowledge base."""
     try:
+        # Additional security validation (Pydantic already validates)
+        sanitize_input(body.question)
+        
         history = [{"role": m.role, "content": m.content} for m in body.history]
         answer = ask(
             question=body.question,
@@ -46,11 +50,22 @@ def chat(
             source_ids=body.source_ids,
         )
         log_usage(db, user["uid"], "chat", metadata={"question": body.question[:100]})
-        return ChatResponse(
+        
+        response = ChatResponse(
             answer=answer.text,
             citations=[CitationOut(video_title=c.video_title, video_id=c.video_id, timestamp_label=c.timestamp_label, youtube_url=c.youtube_url, excerpt=c.excerpt) for c in answer.citations],
             found_relevant_content=answer.found_relevant_content,
         )
+        
+        # Add security headers
+        for header, value in SECURITY_HEADERS.items():
+            response.headers[header] = value
+            
+        return response
+        
+    except ValueError as e:
+        logger.warning(f"Invalid input from user {user['uid']}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception("Chat failed")
         raise HTTPException(status_code=500, detail=str(e))

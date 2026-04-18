@@ -21,10 +21,11 @@ export interface Citation {
 
 export interface Message {
   id: string
-  role: "user" | "assistant"
+  role: "user" | "assistant" | "summary"
   content: string
   citations?: Citation[]
   isStreaming?: boolean
+  summaryData?: IntroData  // For summary messages
 }
 
 export interface IntroData {
