@@ -254,3 +254,40 @@ export async function fetchProfile(): Promise<UserProfile | null> {
     return res.json()
   } catch { return null }
 }
+
+// ── Knowledge Bases ──────────────────────────────────────────────────
+
+export interface KB {
+  id: string
+  name: string
+  created_at: string
+}
+
+export async function fetchKBs(): Promise<KB[]> {
+  try {
+    const res = await fetch(`${BASE}/kbs`, { headers: await authHeaders() })
+    if (!res.ok) return []
+    return res.json()
+  } catch { return [] }
+}
+
+export async function createKB(name: string): Promise<KB | null> {
+  try {
+    const res = await fetch(`${BASE}/kbs`, {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({ name }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.detail || "Failed to create library")
+    }
+    return res.json()
+  } catch (e) {
+    throw e
+  }
+}
+
+export async function deleteKB(id: string): Promise<void> {
+  await fetch(`${BASE}/kbs/${id}`, { method: "DELETE", headers: await authHeaders() })
+}

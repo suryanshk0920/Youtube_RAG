@@ -172,9 +172,9 @@ def get_monthly_usage(db: Any, user_id: str, event_type: str) -> int:
 # ── Plan limits ──────────────────────────────────────────────────────
 
 PLAN_LIMITS = {
-    "free":  {"ingest": 5,   "chat": 50},
-    "pro":   {"ingest": 100, "chat": -1},   # -1 = unlimited
-    "team":  {"ingest": -1,  "chat": -1},
+    "free":  {"ingest": 5,   "chat": 50,  "kbs": 2},
+    "pro":   {"ingest": 100, "chat": -1,  "kbs": -1},
+    "team":  {"ingest": -1,  "chat": -1,  "kbs": -1},
 }
 
 
