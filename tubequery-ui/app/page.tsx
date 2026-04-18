@@ -64,9 +64,12 @@ export default function Home() {
     try {
       const all = await getSources()
       setAllSources(all)
-      setSources(all.filter(s => s.kb_id === activeKb))
+      setSources(all.filter(s => (s.kb_name ?? s.kb_id) === activeKb))
       const counts: Record<string, number> = {}
-      for (const s of all) counts[s.kb_id] = (counts[s.kb_id] ?? 0) + s.chunk_count
+      for (const s of all) {
+        const key = s.kb_name ?? s.kb_id
+        counts[key] = (counts[key] ?? 0) + s.chunk_count
+      }
       setChunkCounts(counts)
     } catch { /* API not ready */ }
   }, [activeKb])

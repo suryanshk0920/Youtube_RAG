@@ -4,6 +4,7 @@ export interface Source {
   url: string
   source_type: string
   kb_id: string
+  kb_name?: string
   status: string
   video_count: number
   chunk_count: number
