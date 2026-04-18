@@ -50,55 +50,20 @@ def _filter_citations(
     chunks: list[tuple[Chunk, float]],
 ) -> list[Citation]:
     """
-    Build citations. Tries SOURCES block parsing first, always falls back
-    to top-scoring chunk so there is always at least one citation.
+    Always return the top-scoring chunk as the citation.
+    Simple, reliable, no SOURCES parsing needed.
     """
-    import re
+    if not chunks:
+        return []
 
-    def make_citation(chunk: Chunk) -> Citation:
-        return Citation(
-            video_title=chunk.video_title,
-            video_id=chunk.video_id,
-            timestamp_label=chunk.timestamp_label,
-            youtube_url=chunk.youtube_url,
-            excerpt=chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
-        )
-
-    sources_match = re.search(r"SOURCES:\s*\n((?:\s*-[^\n]+\n?)+)", answer_text, re.IGNORECASE)
-    matched: list[Citation] = []
-
-    if sources_match:
-        for line in sources_match.group(1).splitlines():
-            line = line.strip().lstrip("- ").strip().strip("[]")
-            if not line:
-                continue
-            for chunk, _ in chunks:
-                ts = chunk.timestamp_label  # e.g. "1:39"
-                title_frag = chunk.video_title.lower()[:20]
-                line_lower = line.lower()
-                # Timestamp match is most specific — try it first
-                if ts and ts in line:
-                    matched.append(make_citation(chunk))
-                    break
-                # Fall back to title fragment
-                if title_frag and title_frag in line_lower:
-                    matched.append(make_citation(chunk))
-                    break
-
-    # Deduplicate
-    seen: set[str] = set()
-    unique: list[Citation] = []
-    for c in matched:
-        key = f"{c.video_id}_{c.timestamp_label}"
-        if key not in seen:
-            seen.add(key)
-            unique.append(c)
-
-    # Always return at least the top-scoring chunk
-    if not unique and chunks:
-        unique.append(make_citation(max(chunks, key=lambda x: x[1])[0]))
-
-    return unique
+    best_chunk, _ = max(chunks, key=lambda x: x[1])
+    return [Citation(
+        video_title=best_chunk.video_title,
+        video_id=best_chunk.video_id,
+        timestamp_label=best_chunk.timestamp_label,
+        youtube_url=best_chunk.youtube_url,
+        excerpt=best_chunk.text[:200] + "..." if len(best_chunk.text) > 200 else best_chunk.text,
+    )]
 
 
 # ── Interface ───────────────────────────────────────────────────────
