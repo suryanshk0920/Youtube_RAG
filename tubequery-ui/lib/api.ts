@@ -155,22 +155,26 @@ export async function streamChat(
       if (done) break
 
       buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split("\n")
-      buffer = lines.pop() ?? ""
 
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue
-        const data = line.slice(6).trim()
-        if (!data || data === "[DONE]") continue
+      // SSE events are separated by double newlines
+      const events = buffer.split("\n\n")
+      buffer = events.pop() ?? ""  // keep incomplete last event
 
-        try {
-          const event = JSON.parse(data)
-          if (event.type === "token") callbacks.onToken(event.content)
-          else if (event.type === "citation") callbacks.onCitation(event.content)
-          else if (event.type === "done") callbacks.onDone()
-          else if (event.type === "error") callbacks.onError(event.content)
-        } catch {
-          // malformed chunk — skip
+      for (const event of events) {
+        for (const line of event.split("\n")) {
+          if (!line.startsWith("data: ")) continue
+          const data = line.slice(6).trim()
+          if (!data || data === "[DONE]") continue
+
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.type === "token") callbacks.onToken(parsed.content)
+            else if (parsed.type === "citation") callbacks.onCitation(parsed.content)
+            else if (parsed.type === "done") callbacks.onDone()
+            else if (parsed.type === "error") callbacks.onError(parsed.content)
+          } catch {
+            // malformed chunk — skip
+          }
         }
       }
     }
