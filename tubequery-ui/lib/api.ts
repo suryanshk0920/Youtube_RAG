@@ -172,12 +172,11 @@ export async function streamChat(
             else if (parsed.type === "citation") callbacks.onCitation(parsed.content)
             else if (parsed.type === "done") callbacks.onDone()
             else if (parsed.type === "error") callbacks.onError(parsed.content)
-          } catch {
-            // malformed chunk — skip
+          } catch (e) {
+            console.warn("SSE parse error:", data.slice(0, 50), e)
           }
         }
-      }
-    }
+      }    }
   } catch (err: unknown) {
     // AbortError is expected when user stops the stream — not a real error
     if (err instanceof Error && err.name === "AbortError") return
