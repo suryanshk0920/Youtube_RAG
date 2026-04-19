@@ -38,11 +38,11 @@ class VectorStore(ABC):
         kb_id: str,
         top_k: int = 5,
         source_id: str | None = None,
+        source_ids: list[str] | None = None,
     ) -> list[tuple[Chunk, float]]:
         """
-        Return top_k most similar chunks for a query embedding.
-        Optionally filter by source_id to scope to a single video.
-        Returns list of (Chunk, similarity_score) tuples.
+        Return top_k most similar chunks.
+        Filter by source_id (single) or source_ids (multiple).
         """
 
     @abstractmethod
@@ -113,13 +113,21 @@ class ChromaVectorStore(VectorStore):
         kb_id: str,
         top_k: int = 5,
         source_id: str | None = None,
+        source_ids: list[str] | None = None,
     ) -> list[tuple[Chunk, float]]:
         col = self._collection(kb_id)
         total = col.count()
         if total == 0:
             return []
 
-        where = {"source_id": source_id} if source_id else None
+        # Build where filter
+        where = None
+        if source_id:
+            where = {"source_id": source_id}
+        elif source_ids and len(source_ids) == 1:
+            where = {"source_id": source_ids[0]}
+        elif source_ids and len(source_ids) > 1:
+            where = {"source_id": {"$in": source_ids}}
 
         results = col.query(
             query_embeddings=[query_embedding],
