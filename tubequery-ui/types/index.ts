@@ -53,3 +53,27 @@ export interface IngestResponse {
   chunk_count: number
   status: string
 }
+
+// Subscription types
+export interface PlanLimits {
+  videos_per_day: number
+  questions_per_day: number
+  history_retention_days: number
+  max_concurrent_videos: number
+  advanced_features: boolean
+  priority_processing: boolean
+  export_enabled: boolean
+}
+
+export interface UserSubscription {
+  id: string
+  user_id: string
+  plan_type: "free" | "pro" | "enterprise"
+  status: "active" | "cancelled" | "expired" | "past_due"
+  stripe_customer_id?: string
+  stripe_subscription_id?: string
+  current_period_start?: string
+  current_period_end?: string
+  created_at: string
+  updated_at: string
+}

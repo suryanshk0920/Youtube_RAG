@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import { Syne, DM_Sans, DM_Mono, Manrope } from "next/font/google"
 import { AuthProvider } from "@/context/AuthContext"
+import { UsageProvider } from "@/context/UsageContext"
+import { AppStateProvider } from "@/context/AppStateContext"
 import "./globals.css"
 
 const syne = Syne({ subsets: ["latin"], weight: ["400","500","600","700","800"], variable: "--font-syne", display: "swap" })
@@ -18,7 +20,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${syne.variable} ${dmSans.variable} ${dmMono.variable} ${manrope.variable}`}>
       <body style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
         <AuthProvider>
-          {children}
+          <UsageProvider>
+            <AppStateProvider>
+              {children}
+            </AppStateProvider>
+          </UsageProvider>
         </AuthProvider>
       </body>
     </html>

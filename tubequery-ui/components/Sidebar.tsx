@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { createKB, fetchKBs, type KB } from "@/lib/api"
 import { UpgradeModal } from "./UpgradeModal"
+import { UsageDashboard } from "./UsageDashboard"
 import type { ChatSession } from "@/types"
 
 interface Props {
@@ -229,6 +230,13 @@ export function Sidebar({ activeKb, activeSourceId, chunkCounts, sessions, onKbC
 
       {/* Footer */}
       <div style={{ padding: "16px 12px 0", borderTop: "1px solid var(--border)", marginTop: "8px" }}>
+        {/* Usage Dashboard - moved here */}
+        {user && (
+          <div style={{ marginBottom: "16px" }}>
+            <UsageDashboard />
+          </div>
+        )}
+        
         <a href="/profile" style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", textDecoration: "none", cursor: "pointer" }}>
           <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "var(--amber-dim)", border: "1px solid var(--border-warm)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 700, color: "var(--amber)", fontFamily: "var(--font-syne), sans-serif", flexShrink: 0 }}>
             {(user?.displayName || user?.email || "?")[0]?.toUpperCase()}

@@ -2,18 +2,20 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
-import { fetchProfile, type UserProfile } from "@/lib/api"
+import { useUsage } from "@/context/UsageContext"
+import { getLimits, type UserLimitsSummary } from "@/lib/api"
+import { UpgradeModal } from "@/components/UpgradeModal"
 
 const PLAN_COLORS = {
   free:  { bg: "rgba(90,86,80,0.2)",  text: "var(--text-muted)",    border: "var(--border)" },
   pro:   { bg: "rgba(245,158,11,0.1)", text: "var(--amber)",         border: "var(--border-warm)" },
-  team:  { bg: "rgba(52,211,153,0.1)", text: "#6ee7b7",              border: "rgba(52,211,153,0.2)" },
+  enterprise:  { bg: "rgba(52,211,153,0.1)", text: "#6ee7b7",              border: "rgba(52,211,153,0.2)" },
 }
 
 const PLAN_FEATURES = {
-  free:  ["5 videos total", "50 chats/month", "2 knowledge bases"],
-  pro:   ["100 videos/month", "Unlimited chats", "Unlimited knowledge bases", "Playlist ingestion"],
-  team:  ["Unlimited everything", "Priority processing", "All Pro features"],
+  free:  ["3 videos per day", "20 questions per day", "7 days history"],
+  pro:   ["50 videos per day", "500 questions per day", "1 year history", "Advanced features"],
+  enterprise:  ["1000 videos per day", "10000 questions per day", "Unlimited history", "All Pro features"],
 }
 
 function UsageBar({ used, limit, label }: { used: number; limit: number; label: string }) {
@@ -45,8 +47,10 @@ function UsageBar({ used, limit, label }: { used: number; limit: number; label: 
 export default function ProfilePage() {
   const { user, signOut, loading: authLoading } = useAuth()
   const router = useRouter()
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { cachedLimits, setCachedLimits } = useUsage()
+  const [limits, setLimits] = useState<UserLimitsSummary | null>(cachedLimits)
+  const [loading, setLoading] = useState(!cachedLimits)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/login")
@@ -54,8 +58,21 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!user) return
-    fetchProfile().then(p => { setProfile(p); setLoading(false) })
-  }, [user])
+    
+    // Use cached limits if available
+    if (cachedLimits) {
+      setLimits(cachedLimits)
+      setLoading(false)
+      return
+    }
+    
+    // Otherwise fetch
+    getLimits().then(data => { 
+      setLimits(data)
+      setCachedLimits(data)
+      setLoading(false) 
+    }).catch(() => setLoading(false))
+  }, [user, cachedLimits, setCachedLimits])
 
   async function handleSignOut() {
     await signOut()
@@ -70,8 +87,8 @@ export default function ProfilePage() {
     )
   }
 
-  const plan = profile?.plan ?? "free"
-  const planStyle = PLAN_COLORS[plan]
+  const plan = limits?.plan.type ?? "free"
+  const planStyle = PLAN_COLORS[plan as keyof typeof PLAN_COLORS] ?? PLAN_COLORS.free
 
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg-base)", padding: "32px 16px" }}>
@@ -87,19 +104,19 @@ export default function ProfilePage() {
 
         {/* Avatar + name */}
         <div style={{ background: "var(--bg-surface)", borderRadius: "16px", border: "1px solid var(--border)", padding: "24px", display: "flex", alignItems: "center", gap: "16px" }}>
-          {profile?.photo_url ? (
-            <img src={profile.photo_url} alt="" style={{ width: "56px", height: "56px", borderRadius: "50%", border: "2px solid var(--border-warm)" }} />
+          {user?.photoURL ? (
+            <img src={user.photoURL} alt="" style={{ width: "56px", height: "56px", borderRadius: "50%", border: "2px solid var(--border-warm)" }} />
           ) : (
             <div style={{ width: "56px", height: "56px", borderRadius: "50%", background: "var(--amber-dim)", border: "1px solid var(--border-warm)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-syne), sans-serif", fontWeight: 700, fontSize: "1.2rem", color: "var(--amber)" }}>
-              {(profile?.display_name || profile?.email || "?")[0].toUpperCase()}
+              {(user?.displayName || user?.email || "?")[0].toUpperCase()}
             </div>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontFamily: "var(--font-syne), sans-serif", fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {profile?.display_name || "User"}
+              {user?.displayName || "User"}
             </p>
             <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {profile?.email}
+              {user?.email}
             </p>
           </div>
           {/* Plan badge */}
@@ -111,10 +128,13 @@ export default function ProfilePage() {
         {/* Usage */}
         <div style={{ background: "var(--bg-surface)", borderRadius: "16px", border: "1px solid var(--border)", padding: "24px" }}>
           <p style={{ fontFamily: "var(--font-syne), sans-serif", fontWeight: 600, fontSize: "0.85rem", color: "var(--text-primary)", margin: "0 0 16px" }}>
-            This month's usage
+            Daily usage
           </p>
-          <UsageBar label="Videos ingested" used={profile?.usage.ingest.used ?? 0} limit={profile?.usage.ingest.limit ?? 5} />
-          <UsageBar label="Chat messages" used={profile?.usage.chat.used ?? 0} limit={profile?.usage.chat.limit ?? 50} />
+          <UsageBar label="Videos today" used={limits?.usage.videos_today ?? 0} limit={limits?.usage.videos_limit ?? 3} />
+          <UsageBar label="Questions today" used={limits?.usage.questions_today ?? 0} limit={limits?.usage.questions_limit ?? 20} />
+          <p style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "12px", textAlign: "center", fontFamily: "var(--font-dm-mono), monospace" }}>
+            Resets at midnight UTC
+          </p>
         </div>
 
         {/* Plan features */}
@@ -124,13 +144,15 @@ export default function ProfilePage() {
               {plan.charAt(0).toUpperCase() + plan.slice(1)} plan
             </p>
             {plan === "free" && (
-              <button style={{ padding: "5px 12px", borderRadius: "8px", border: "1px solid var(--border-warm)", background: "var(--amber-dim)", color: "var(--amber)", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-syne), sans-serif" }}>
+              <button 
+                onClick={() => setShowUpgradeModal(true)}
+                style={{ padding: "5px 12px", borderRadius: "8px", border: "1px solid var(--border-warm)", background: "var(--amber-dim)", color: "var(--amber)", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-syne), sans-serif" }}>
                 Upgrade →
               </button>
             )}
           </div>
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "8px" }}>
-            {PLAN_FEATURES[plan].map((f, i) => (
+            {PLAN_FEATURES[plan as keyof typeof PLAN_FEATURES]?.map((f, i) => (
               <li key={i} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
                 <span style={{ color: plan === "free" ? "var(--amber)" : "#6ee7b7", fontSize: "0.7rem" }}>✓</span>
                 {f}
@@ -146,15 +168,15 @@ export default function ProfilePage() {
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
-              <span style={{ color: "var(--text-muted)" }}>Member since</span>
+              <span style={{ color: "var(--text-muted)" }}>Total videos</span>
               <span style={{ color: "var(--text-secondary)", fontFamily: "var(--font-dm-mono), monospace" }}>
-                {profile?.created_at ? new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—"}
+                {limits?.usage.total_videos ?? 0}
               </span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
               <span style={{ color: "var(--text-muted)" }}>User ID</span>
               <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-dm-mono), monospace", fontSize: "0.7rem" }}>
-                {profile?.uid?.slice(0, 12)}…
+                {user?.uid?.slice(0, 12)}…
               </span>
             </div>
           </div>
@@ -177,6 +199,14 @@ export default function ProfilePage() {
         </button>
 
       </div>
+      
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <UpgradeModal
+          onClose={() => setShowUpgradeModal(false)}
+          reason="Upgrade to unlock more features and higher limits"
+        />
+      )}
     </div>
   )
 }

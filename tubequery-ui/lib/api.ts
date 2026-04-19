@@ -116,7 +116,7 @@ export interface StreamCallbacks {
   onToken: (token: string) => void
   onCitation: (citation: Citation) => void
   onDone: () => void
-  onError: (error: string) => void
+  onError: (error: string, upgradeRequired?: boolean, limitDetails?: any) => void
 }
 
 export async function streamChat(
@@ -171,7 +171,13 @@ export async function streamChat(
             if (parsed.type === "token") callbacks.onToken(parsed.content)
             else if (parsed.type === "citation") callbacks.onCitation(parsed.content)
             else if (parsed.type === "done") callbacks.onDone()
-            else if (parsed.type === "error") callbacks.onError(parsed.content)
+            else if (parsed.type === "error") {
+              callbacks.onError(
+                parsed.content, 
+                parsed.upgrade_required, 
+                parsed.limit_details
+              )
+            }
           } catch (e) {
             console.warn("SSE parse error:", data.slice(0, 50), e)
           }
@@ -181,7 +187,7 @@ export async function streamChat(
   } catch (err: unknown) {
     // AbortError is expected when user stops the stream — not a real error
     if (err instanceof Error && err.name === "AbortError") return
-    callbacks.onError(err instanceof Error ? err.message : "Stream failed")
+    callbacks.onError(err instanceof Error ? err.message : "Stream failed", false, null)
   }
 }
 
@@ -290,4 +296,71 @@ export async function createKB(name: string): Promise<KB | null> {
 
 export async function deleteKB(id: string): Promise<void> {
   await fetch(`${BASE}/kbs/${id}`, { method: "DELETE", headers: await authHeaders() })
+}
+
+// ── Subscription ─────────────────────────────────────────────────────
+
+export interface UsageLimits {
+  allowed: boolean
+  used: number
+  limit: number
+  plan: string
+  resets_at: string
+  upgrade_message?: {
+    title: string
+    message: string
+    cta: string
+    benefits: string[]
+  }
+}
+
+export interface UserLimitsSummary {
+  plan: {
+    type: string
+    status: string
+    features: {
+      advanced_summaries: boolean
+      priority_processing: boolean
+      export_enabled: boolean
+      history_retention_days: number
+    }
+  }
+  usage: {
+    videos_today: number
+    videos_limit: number
+    questions_today: number
+    questions_limit: number
+    total_videos: number
+    max_concurrent_videos: number
+  }
+  resets_at: string
+  upgrade_required: boolean
+}
+
+export async function getLimits(): Promise<UserLimitsSummary> {
+  const res = await fetch(`${BASE}/subscription/limits`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error('Failed to get limits')
+  return res.json()
+}
+
+export async function checkVideoLimit(): Promise<UsageLimits> {
+  const res = await fetch(`${BASE}/subscription/check/video`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error('Failed to check video limit')
+  return res.json()
+}
+
+export async function checkQuestionLimit(): Promise<UsageLimits> {
+  const res = await fetch(`${BASE}/subscription/check/question`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error('Failed to check question limit')
+  return res.json()
+}
+
+export async function initiateUpgrade(planType: string, billingCycle: string = 'monthly') {
+  const res = await fetch(`${BASE}/subscription/upgrade`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ plan_type: planType, billing_cycle: billingCycle }),
+  })
+  if (!res.ok) throw new Error('Failed to initiate upgrade')
+  return res.json()
 }
