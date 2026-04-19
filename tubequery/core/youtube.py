@@ -151,17 +151,35 @@ def fetch_transcript(video_id: str) -> list[dict]:
         Each dict has ``{'text': str, 'start': float, 'duration': float}``.
         Returns an empty list if the transcript is unavailable.
     """
+    import os, requests, http.cookiejar
+
     try:
-        # v1.x API: instantiate first, then call fetch
-        api = YouTubeTranscriptApi()
+        session = requests.Session()
+        session.headers.update({
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            )
+        })
+
+        # Load cookies from file if present — helps bypass IP blocks
+        cookies_path = os.path.join(
+            os.path.dirname(__file__), "..", "youtube_cookies.txt"
+        )
+        if os.path.exists(cookies_path):
+            jar = http.cookiejar.MozillaCookieJar(cookies_path)
+            jar.load(ignore_discard=True, ignore_expires=True)
+            session.cookies.update(jar)
+            logger.info("Using YouTube cookies from %s", cookies_path)
+
+        api = YouTubeTranscriptApi(http_client=session)
         transcript = api.fetch(video_id, languages=["en", "en-US", "en-GB"])
-        # v1.x returns a FetchedTranscript object — convert to list of dicts
         return [{"text": s.text, "start": s.start, "duration": s.duration} for s in transcript]
+
     except (TranscriptsDisabled, NoTranscriptFound):
         logger.warning("No transcript available for video %s", video_id)
         return []
     except Exception as exc:
-        logger.warning(
-            "Could not fetch transcript for %s: %s", video_id, exc
-        )
+        logger.warning("Could not fetch transcript for %s: %s", video_id, exc)
         return []

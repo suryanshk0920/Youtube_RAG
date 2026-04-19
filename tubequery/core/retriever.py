@@ -28,6 +28,7 @@ def ask(
     vector_store: VectorStore,
     llm_service: LLMService,
     history: list[dict] | None = None,
+    source_ids: list[str] | None = None,
 ) -> Answer:
     """
     Full retrieval pipeline.
@@ -69,6 +70,7 @@ def ask(
         query_embedding=query_embedding,
         kb_id=kb_id,
         top_k=config.TOP_K,
+        source_ids=source_ids,
     )
 
     # Step 3: Filter by relevance threshold

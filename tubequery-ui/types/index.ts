@@ -4,6 +4,7 @@ export interface Source {
   url: string
   source_type: string
   kb_id: string
+  kb_name?: string
   status: string
   video_count: number
   chunk_count: number
@@ -20,14 +21,16 @@ export interface Citation {
 
 export interface Message {
   id: string
-  role: "user" | "assistant"
+  role: "user" | "assistant" | "summary"
   content: string
   citations?: Citation[]
   isStreaming?: boolean
+  summaryData?: IntroData  // For summary messages
 }
 
 export interface IntroData {
   source_id: string
+  source_title: string
   intro: string
   topics: string[]
   questions: string[]
@@ -39,6 +42,7 @@ export interface ChatSession {
   kbId: string
   messages: Message[]
   createdAt: string
+  dbId?: string  // Supabase UUID — undefined for local-only sessions
 }
 
 export interface IngestResponse {
@@ -48,4 +52,28 @@ export interface IngestResponse {
   video_count: number
   chunk_count: number
   status: string
+}
+
+// Subscription types
+export interface PlanLimits {
+  videos_per_day: number
+  questions_per_day: number
+  history_retention_days: number
+  max_concurrent_videos: number
+  advanced_features: boolean
+  priority_processing: boolean
+  export_enabled: boolean
+}
+
+export interface UserSubscription {
+  id: string
+  user_id: string
+  plan_type: "free" | "pro" | "enterprise"
+  status: "active" | "cancelled" | "expired" | "past_due"
+  stripe_customer_id?: string
+  stripe_subscription_id?: string
+  current_period_start?: string
+  current_period_end?: string
+  created_at: string
+  updated_at: string
 }

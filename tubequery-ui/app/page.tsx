@@ -1,24 +1,13 @@
 "use client"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { ChatPanel } from "@/components/ChatPanel"
 import { IngestionPanel } from "@/components/IngestionPanel"
 import { Sidebar } from "@/components/Sidebar"
-import { getSources } from "@/lib/api"
+import { getSources, fetchSessions, createDBSession, updateDBSession, deleteDBSession } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
+import { useAppState } from "@/context/AppStateContext"
 import type { ChatSession, IntroData, Message, Source } from "@/types"
-
-const STORAGE_KEY = "tubequery_sessions_v2"
-
-function loadSessions(): Record<string, ChatSession> {
-  if (typeof window === "undefined") return {}
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : {}
-  } catch { return {} }
-}
-
-function saveSessions(s: Record<string, ChatSession>) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch { /* quota */ }
-}
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
@@ -32,96 +21,211 @@ function useIsMobile() {
 }
 
 export default function Home() {
-  const [activeKb, setActiveKb] = useState("default")
-  const [activeSourceId, setActiveSourceId] = useState<string | null>(null)
-  const [sources, setSources] = useState<Source[]>([])
-  const [allSources, setAllSources] = useState<Source[]>([])
+  const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const { state, updateSessions, updateSources, updateActiveKb, updateActiveSourceId, updateChunkCounts, updateLastFetched } = useAppState()
+  
+  const [allSources, setAllSources] = useState<Source[]>(state.sources)
   const [pendingIntro, setPendingIntro] = useState<IntroData | null>(null)
-  const [chunkCounts, setChunkCounts] = useState<Record<string, number>>({})
-  const [sessions, setSessions] = useState<Record<string, ChatSession>>({})
-  // Mobile tab: "chat" | "add" | "library"
   const [mobileTab, setMobileTab] = useState<"chat" | "add" | "library">("chat")
+  const [generatingSummary, setGeneratingSummary] = useState(false)
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
   const isMobile = useIsMobile()
+  
+  // Use ref to track if sources are currently being loaded
+  const loadingSourcesRef = useRef(false)
 
-  useEffect(() => { setSessions(loadSessions()) }, [])
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) router.push("/login")
+  }, [user, authLoading, router])
 
-  const loadSources = useCallback(async () => {
+  // Load sessions from Supabase only once on mount if not already loaded
+  useEffect(() => {
+    if (!user || initialLoadDone) return
+    
+    const hasExistingSessions = Object.keys(state.sessions).length > 0
+    
+    if (!hasExistingSessions) {
+      fetchSessions().then(dbSessions => {
+        const map: Record<string, ChatSession> = {}
+        for (const s of dbSessions) {
+          const key = s.source_id
+          map[key] = {
+            sourceId: s.source_id,
+            sourceTitle: s.source_title,
+            kbId: s.kb_name,
+            messages: (s.messages as Message[]) ?? [],
+            createdAt: s.created_at,
+            dbId: s.id,
+          }
+        }
+        updateSessions(map)
+        setInitialLoadDone(true)
+      })
+    } else {
+      setInitialLoadDone(true)
+    }
+  }, [user, state.sessions, updateSessions, initialLoadDone])
+
+  const loadSources = useCallback(async (force = false) => {
+    // Prevent concurrent loads
+    if (loadingSourcesRef.current) return
+    
+    // Use cached data if available and recent (within 30 seconds)
+    const now = Date.now()
+    const lastFetch = state.lastFetched
+    const cachedSources = state.sources
+    
+    if (!force && now - lastFetch < 30_000 && cachedSources.length > 0) {
+      setAllSources(cachedSources)
+      return
+    }
+    
+    loadingSourcesRef.current = true
+    
     try {
       const all = await getSources()
       setAllSources(all)
-      setSources(all.filter(s => s.kb_id === activeKb))
+      updateSources(all)
+      
       const counts: Record<string, number> = {}
-      for (const s of all) counts[s.kb_id] = (counts[s.kb_id] ?? 0) + s.chunk_count
-      setChunkCounts(counts)
-    } catch { /* API not ready */ }
-  }, [activeKb])
+      for (const s of all) {
+        const key = s.kb_name ?? s.kb_id
+        counts[key] = (counts[key] ?? 0) + s.chunk_count
+      }
+      updateChunkCounts(counts)
+      updateLastFetched(now)
+    } catch { /* API not ready */ } finally {
+      loadingSourcesRef.current = false
+    }
+  }, [updateSources, updateChunkCounts, updateLastFetched]) // Remove state dependencies
 
-  useEffect(() => { loadSources() }, [loadSources])
+  useEffect(() => { 
+    if (!user || !initialLoadDone) return // Wait for initial load
+    
+    // Only load once on mount
+    if (state.sources.length === 0 || Date.now() - state.lastFetched > 30_000) {
+      loadSources(false)
+    } else {
+      setAllSources(state.sources)
+    }
+  }, [user, initialLoadDone]) // Remove loadSources dependency - only run once
 
   function handleMessagesChange(sourceId: string, messages: Message[]) {
-    const existing = sessions[sourceId]
+    const existing = state.sessions[sourceId]
     const session = existing ?? {
       sourceId,
       sourceTitle: allSources.find(s => s.id === sourceId)?.title ?? sourceId,
-      kbId: activeKb,
+      kbId: state.activeKb,
       messages: [],
       createdAt: new Date().toISOString(),
     }
-    const updated = { ...sessions, [sourceId]: { ...session, messages } }
-    setSessions(updated)
-    saveSessions(updated)
+    const updatedSessions = { ...state.sessions, [sourceId]: { ...session, messages } }
+    updateSessions(updatedSessions)
+    
+    // Only save to Supabase when streaming is complete
+    const isStillStreaming = messages.some(m => m.isStreaming)
+    if (!isStillStreaming && existing?.dbId) {
+      updateDBSession(existing.dbId, messages).catch(e => console.warn("Session save failed:", e))
+    }
   }
 
-  function handleIntroReady(intro: IntroData) {
+  async function handleIntroReady(intro: IntroData) {
+    setGeneratingSummary(false)
+    await loadSources(true) // Force refresh after ingestion
     const source = allSources.find(s => s.id === intro.source_id)
-    const title = source?.title ?? intro.source_id
-    const session: ChatSession = {
-      sourceId: intro.source_id,
-      sourceTitle: title,
-      kbId: activeKb,
-      messages: [],
-      createdAt: new Date().toISOString(),
+    const title = intro.source_title || source?.title || intro.source_id
+
+    const existingSession = state.sessions[intro.source_id]
+    
+    if (existingSession) {
+      const summaryMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "summary",
+        content: intro.intro,
+        summaryData: intro,
+      }
+      const updatedMessages = [...existingSession.messages, summaryMessage]
+      handleMessagesChange(intro.source_id, updatedMessages)
+      updateActiveSourceId(intro.source_id)
+      setMobileTab("chat")
+      return
     }
-    const updated = { ...sessions, [intro.source_id]: session }
-    setSessions(updated)
-    saveSessions(updated)
-    setActiveSourceId(intro.source_id)
+
     setPendingIntro(intro)
-    setMobileTab("chat") // switch to chat on mobile after ingestion
+    setMobileTab("chat")
+
+    try {
+      const dbSession = await createDBSession(intro.source_id, title, state.activeKb)
+      const updatedSessions = {
+        ...state.sessions,
+        [intro.source_id]: {
+          sourceId: intro.source_id,
+          sourceTitle: title,
+          kbId: state.activeKb,
+          messages: [],
+          createdAt: dbSession.created_at,
+          dbId: dbSession.id,
+        }
+      }
+      updateSessions(updatedSessions)
+    } catch (e) {
+      console.warn("Session creation failed, using local:", e)
+      const updatedSessions = {
+        ...state.sessions,
+        [intro.source_id]: {
+          sourceId: intro.source_id,
+          sourceTitle: title,
+          kbId: state.activeKb,
+          messages: [],
+          createdAt: new Date().toISOString(),
+        }
+      }
+      updateSessions(updatedSessions)
+    }
+    updateActiveSourceId(intro.source_id)
   }
 
   function handleSelectSession(sourceId: string) {
-    setActiveSourceId(sourceId)
-    setPendingIntro(null)  // always clear intro when switching sessions
-    const session = sessions[sourceId]
-    if (session && session.kbId !== activeKb) setActiveKb(session.kbId)
+    updateActiveSourceId(sourceId)
+    setPendingIntro(null)
+    const session = state.sessions[sourceId]
+    if (session && session.kbId !== state.activeKb) updateActiveKb(session.kbId)
     setMobileTab("chat")
   }
 
   function handleDeleteSession(sourceId: string) {
-    const updated = { ...sessions }
+    const session = state.sessions[sourceId]
+    if (session?.dbId) {
+      deleteDBSession(session.dbId).catch(e => console.warn("Session delete failed:", e))
+    }
+    const updated = { ...state.sessions }
     delete updated[sourceId]
-    setSessions(updated)
-    saveSessions(updated)
-    if (activeSourceId === sourceId) {
-      setActiveSourceId(null)
+    updateSessions(updated)
+    if (state.activeSourceId === sourceId) {
+      updateActiveSourceId(null)
       setPendingIntro(null)
     }
   }
 
   function handleKbChange(kb: string) {
-    setActiveKb(kb)
-    setActiveSourceId(null)
+    updateActiveKb(kb)
+    updateActiveSourceId(null)
     setPendingIntro(null)
     setMobileTab("chat")
   }
 
-  const activeSession = activeSourceId ? sessions[activeSourceId] : null
+  const activeSession = state.activeSourceId ? state.sessions[state.activeSourceId] : null
   const activeMessages = activeSession?.messages ?? []
-  const activeKbForChat = activeSession?.kbId ?? activeKb
+  const activeKbForChat = activeSession?.kbId ?? state.activeKb
+  const filteredSources = allSources.filter(s => (s.kb_name ?? s.kb_id) === state.activeKb)
 
   const sidebarProps = {
-    activeKb, activeSourceId, chunkCounts, sessions,
+    activeKb: state.activeKb,
+    activeSourceId: state.activeSourceId,
+    chunkCounts: state.chunkCounts,
+    sessions: state.sessions,
     onKbChange: handleKbChange,
     onSelectSession: handleSelectSession,
     onDeleteSession: handleDeleteSession,
@@ -129,17 +233,20 @@ export default function Home() {
 
   const chatProps = {
     activeKb: activeKbForChat,
-    activeSourceId,   // pass so chat scopes to this video's chunks
+    activeSourceId: state.activeSourceId,
     pendingIntro,
+    generatingSummary,
     onIntroDismiss: () => setPendingIntro(null),
     messages: activeMessages,
-    onMessagesChange: (msgs: Message[]) => activeSourceId && handleMessagesChange(activeSourceId, msgs),
+    onMessagesChange: (msgs: Message[]) => state.activeSourceId && handleMessagesChange(state.activeSourceId, msgs),
   }
 
   const ingestProps = {
-    sources, activeKb,
-    onSourcesChange: loadSources,
+    sources: filteredSources,
+    activeKb: state.activeKb,
+    onSourcesChange: () => loadSources(true),
     onIntroReady: handleIntroReady,
+    onSummarising: () => { setGeneratingSummary(true); setMobileTab("chat") },
   }
 
   return (

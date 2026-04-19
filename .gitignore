@@ -1,18 +1,37 @@
-# Secrets
+# Secrets & Environment
 support
 .env
 *.env
+!.env.example
 
-# Data
+# Sensitive Files
+tubequery/youtube_cookies.txt
+tubequery-ui/.env.local
+
+# Test Files (keep out of production)
+tubequery/test_*.py
+**/test_*.py
+load_test_results_*.json
+
+# Data & User Content
 tubequery/data/
+*.db
+*.sqlite
+*.sqlite3
 
-# Blueprint & docs
+# Blueprint & Internal Docs
 _blueprint.txt
 TubeQuery_Blueprint.docx
 *.docx
 *.pdf
 *.doc
 tubequery/docs/
+SAAS_ROADMAP.md
+
+# Internal Development Documentation
+PRE_COMMIT_CHECKLIST.md
+REDIS_COST_OPTIMIZATION.md
+REDIS_SPRINT.md
 
 # Python
 __pycache__/
@@ -21,22 +40,53 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.eggs/
+*.egg
 
 # Virtual environments
 venv/
 .venv/
 env/
+.conda/
 
-# IDE
+# IDE & Editors
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
+.vim/
 
-# OS
+# OS Files
 .DS_Store
 Thumbs.db
+desktop.ini
+*.tmp
 
 # Next.js
 tubequery-ui/.env.local
 tubequery-ui/.next/
 tubequery-ui/node_modules/
+tubequery-ui/out/
+tubequery-ui/.vercel/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Runtime & Cache
+.cache/
+.temp/
+.tmp/
+
+# Deployment
+.vercel
+.netlify
+
+# Sensitive Files - Never Commit These!
+tubequery/youtube_cookies.txt
+*.cookies
+cookies.txt
