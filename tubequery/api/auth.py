@@ -24,55 +24,70 @@ logger = logging.getLogger(__name__)
 
 # ── Firebase Admin init ──────────────────────────────────────────────
 
+_firebase_initialized = False
+_firebase_init_error: Exception | None = None
+
+
 def _init_firebase() -> None:
-    if firebase_admin._apps:
-        return  # already initialised
+    """
+    Initialize Firebase Admin SDK. Called lazily on first auth request.
+    This prevents the app from crashing at startup if Firebase isn't configured.
+    """
+    global _firebase_initialized, _firebase_init_error
     
-    # Method 1: Try to read from file path (recommended for production)
-    firebase_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "")
-    if firebase_path:
-        if not os.path.exists(firebase_path):
-            raise RuntimeError(f"FIREBASE_SERVICE_ACCOUNT_PATH is set but file not found: {firebase_path}")
-        try:
+    if _firebase_initialized:
+        return
+    
+    if firebase_admin._apps:
+        _firebase_initialized = True
+        return
+    
+    try:
+        # Method 1: File path (recommended for production - Render Secret Files)
+        firebase_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "")
+        if firebase_path:
+            if not os.path.exists(firebase_path):
+                raise RuntimeError(f"FIREBASE_SERVICE_ACCOUNT_PATH is set but file not found: {firebase_path}")
             cred = credentials.Certificate(firebase_path)
             firebase_admin.initialize_app(cred)
-            logger.info(f"Firebase Admin SDK initialised from file: {firebase_path}")
+            logger.info(f"✅ Firebase Admin SDK initialized from file: {firebase_path}")
+            _firebase_initialized = True
             return
-        except Exception as e:
-            raise RuntimeError(f"Failed to load Firebase from file {firebase_path}: {e}")
-    
-    # Method 2: Try to read from JSON string (for local development)
-    sa = os.getenv("FIREBASE_SERVICE_ACCOUNT", "")
-    if sa:
-        try:
+        
+        # Method 2: JSON string (alternative for platforms without secret files)
+        sa = os.getenv("FIREBASE_SERVICE_ACCOUNT", "")
+        if sa:
+            # Handle escaped newlines in environment variables
+            sa = sa.replace('\\n', '\n')
             sa_dict = json.loads(sa)
             cred = credentials.Certificate(sa_dict)
             firebase_admin.initialize_app(cred)
-            logger.info("Firebase Admin SDK initialised from JSON string (project: %s)", sa_dict.get("project_id"))
+            logger.info(f"✅ Firebase Admin SDK initialized from JSON string (project: {sa_dict.get('project_id')})")
+            _firebase_initialized = True
             return
-        except (json.JSONDecodeError, ValueError) as e:
-            raise RuntimeError(f"Invalid FIREBASE_SERVICE_ACCOUNT JSON: {e}")
-    
-    # Method 3: Try to read from default file location (fallback for local dev)
-    default_path = os.path.join(os.path.dirname(__file__), "..", "firebase-service-account.json")
-    if os.path.exists(default_path):
-        try:
+        
+        # Method 3: Default file location (local development)
+        default_path = os.path.join(os.path.dirname(__file__), "..", "firebase-service-account.json")
+        if os.path.exists(default_path):
             cred = credentials.Certificate(default_path)
             firebase_admin.initialize_app(cred)
-            logger.info(f"Firebase Admin SDK initialised from default file: {default_path}")
+            logger.info(f"✅ Firebase Admin SDK initialized from default file: {default_path}")
+            _firebase_initialized = True
             return
-        except Exception as e:
-            raise RuntimeError(f"Failed to load Firebase from default file {default_path}: {e}")
-    
-    raise RuntimeError(
-        "Firebase service account not configured. Please set one of:\n"
-        "  - FIREBASE_SERVICE_ACCOUNT_PATH (path to JSON file)\n"
-        "  - FIREBASE_SERVICE_ACCOUNT (JSON string)\n"
-        "  - Or place firebase-service-account.json in tubequery/ directory"
-    )
-
-
-_init_firebase()
+        
+        # No configuration found
+        error_msg = (
+            "Firebase service account not configured. Please set one of:\n"
+            "  1. FIREBASE_SERVICE_ACCOUNT_PATH (path to JSON file)\n"
+            "  2. FIREBASE_SERVICE_ACCOUNT (JSON string with escaped newlines)\n"
+            "  3. Place firebase-service-account.json in tubequery/ directory"
+        )
+        raise RuntimeError(error_msg)
+        
+    except Exception as e:
+        _firebase_init_error = e
+        logger.error(f"❌ Firebase initialization failed: {e}")
+        raise
 
 # ── Supabase HTTP client (no supabase package — uses httpx directly) ─
 
@@ -262,6 +277,17 @@ async def get_current_user(
         def handler(user: dict = Depends(get_current_user)):
             user_id = user["uid"]
     """
+    # Initialize Firebase on first auth request (lazy initialization)
+    if not _firebase_initialized:
+        try:
+            _init_firebase()
+        except Exception as e:
+            logger.error(f"Firebase initialization failed during auth: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication service is not configured. Please contact support.",
+            )
+    
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -293,3 +319,29 @@ async def get_current_user_optional(
         return await get_current_user(credentials)
     except HTTPException:
         return None
+
+
+def get_firebase_status() -> dict:
+    """
+    Get Firebase initialization status for health checks.
+    Returns status without attempting initialization.
+    """
+    if _firebase_initialized:
+        return {
+            "status": "healthy",
+            "initialized": True,
+            "message": "Firebase Admin SDK is initialized and ready"
+        }
+    elif _firebase_init_error:
+        return {
+            "status": "unhealthy",
+            "initialized": False,
+            "error": str(_firebase_init_error),
+            "message": "Firebase initialization failed"
+        }
+    else:
+        return {
+            "status": "not_initialized",
+            "initialized": False,
+            "message": "Firebase has not been initialized yet (lazy loading)"
+        }

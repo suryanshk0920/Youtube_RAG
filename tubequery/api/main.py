@@ -108,6 +108,13 @@ def health():
     return HealthResponse(status="ok")
 
 
+@app.get("/health/firebase", tags=["health"])
+def firebase_health():
+    """Check Firebase initialization status."""
+    from api.auth import get_firebase_status
+    return get_firebase_status()
+
+
 # ── Redis Health Check ──────────────────────────────────────────────
 @app.get("/health/redis", tags=["health"])
 async def redis_health():
