@@ -61,7 +61,7 @@ git push origin main
    - **Root Directory**: `tubequery`
    - **Runtime**: `Python 3`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn api.main:app --host 0.0.0.0 --port $PORT`
+   - **Start Command**: `python startup.py`
 
 ### Step 3: Configure Environment Variables
 
