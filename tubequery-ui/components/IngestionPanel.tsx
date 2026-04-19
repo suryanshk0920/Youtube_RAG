@@ -23,13 +23,13 @@ function Spinner() {
 }
 
 const STEP_LABELS: Record<string, string> = {
-  fetch:       "Reading transcript…",
-  chunk:       "Processing text…",
-  embed:       "Building search index…",
-  store:       "Saving to library…",
-  done:        "Indexed!",
-  cached:      "Already in library",
-  summarising: "Generating summary…",
+  fetch:       "Reading video...",
+  chunk:       "Breaking it down...",
+  embed:       "Making it searchable...",
+  store:       "Saving to your library...",
+  done:        "Ready to chat!",
+  cached:      "Already in your library",
+  summarising: "Creating summary...",
 }
 
 export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroReady, onSummarising }: Props) {
@@ -52,6 +52,30 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
     const target = (ingestUrl ?? url).trim()
     if (!target) return
 
+    // Client-side URL validation
+    try {
+      const urlObj = new URL(target)
+      const domain = urlObj.hostname.toLowerCase().replace(/^www\./, '')
+      
+      // Check if it's a YouTube URL
+      if (!['youtube.com', 'm.youtube.com'].includes(domain)) {
+        setStatus({ 
+          type: "error", 
+          msg: "Hmm, that doesn't look like a YouTube link. Try copying the URL from YouTube!" 
+        })
+        return
+      }
+      
+      // Check if it's HTTPS
+      if (urlObj.protocol !== 'https:') {
+        setStatus({ type: "error", msg: "Please use a secure YouTube link (starting with https://)" })
+        return
+      }
+    } catch (e) {
+      setStatus({ type: "error", msg: "That doesn't look like a valid link. Copy it directly from YouTube!" })
+      return
+    }
+
     // Set loading state immediately when button is clicked
     setLoading(true)
     setStatus(null)
@@ -67,7 +91,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
         setStep(null)
         setUpgradeModal({
           show: true,
-          reason: `You've reached your daily limit of ${limitCheck.limit} videos.`,
+          reason: `You've added ${limitCheck.limit} videos today. Come back tomorrow or upgrade for more!`,
           upgradeMessage: limitCheck.upgrade_message
         })
         return
@@ -99,9 +123,38 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
             onIntroReady(intro)
           } catch { /* non-fatal */ }
         },
-        onError: (err) => {
-          setStatus({ type: "error", msg: err })
-          setRetryUrl(target)
+        onError: (err, upgradeRequired, details) => {
+          // Handle playlist/channel restriction
+          if (upgradeRequired && details?.feature === 'playlist') {
+            setUpgradeModal({
+              show: true,
+              reason: "Playlists and channels are for Pro users! Upgrade to add multiple videos at once.",
+              upgradeMessage: {
+                title: "Unlock Playlists & Channels",
+                message: "Add entire playlists and channels in one go",
+                cta: "Upgrade to Pro",
+                benefits: [
+                  "Add entire playlists (50+ videos)",
+                  "Process YouTube channels",
+                  "50 videos per day",
+                  "500 questions per day",
+                  "Priority processing"
+                ]
+              }
+            })
+          } else {
+            // Simplify technical errors for users
+            let userFriendlyMsg = err
+            if (err.includes("transcript")) {
+              userFriendlyMsg = "Couldn't get the video content. It might not have captions available."
+            } else if (err.includes("domain") || err.includes("URL")) {
+              userFriendlyMsg = "Please use a direct YouTube link (no shortened URLs like youtu.be)"
+            } else if (err.includes("HTTPS")) {
+              userFriendlyMsg = "Please use a secure YouTube link (starting with https://)"
+            }
+            setStatus({ type: "error", msg: userFriendlyMsg })
+            setRetryUrl(target)
+          }
         },
       })
     } catch (e: unknown) {
@@ -120,10 +173,10 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
         {/* Header */}
         <div style={{ padding: "22px 20px 16px", borderBottom: "1px solid var(--border)" }}>
           <p style={{ fontFamily: "var(--font-syne), sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
-            Add Content
+            Add Videos
           </p>
           <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "2px" }}>
-            Video · Playlist · Channel
+            Single videos · Playlists (Pro) · Channels (Pro)
           </p>
         </div>
 
@@ -162,7 +215,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
                 transition: "all 0.18s ease",
               }}
             >
-              {loading ? <><Spinner /> Ingesting…</> : "↑ Ingest"}
+              {loading ? <><Spinner /> Adding...</> : "✓ Add Video"}
             </button>
 
             {/* Step-by-step progress */}
@@ -174,7 +227,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", color: "var(--amber)" }}>
                   <Spinner />
-                  <span>{step === "summarising" ? "Generating summary…" : (STEP_LABELS[step] ?? step)}</span>
+                  <span>{step === "summarising" ? "Creating summary..." : (STEP_LABELS[step] ?? step)}</span>
                 </div>
                 {progress && progress.total > 1 && (
                   <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-dm-mono), monospace" }}>
@@ -223,7 +276,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
           {sources.length > 0 && (
             <div>
               <p style={{ fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "8px" }}>
-                Ingested · {sources.length}
+                Your Library · {sources.length}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                 {sources.map(s => {
@@ -326,7 +379,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
                                 transition: "background 0.15s",
                               }}
                             >
-                              {summaryLoadingId === s.id ? <><Spinner /> Generating…</> : "✦ Summary"}
+                              {summaryLoadingId === s.id ? <><Spinner /> Creating...</> : "✦ Get Summary"}
                             </button>
                             {s.status === "failed" && (
                               <button
@@ -336,7 +389,7 @@ export function IngestionPanel({ sources, activeKb, onSourcesChange, onIntroRead
                                   border: "1px solid rgba(245,158,11,0.2)", background: "var(--amber-glow)",
                                   color: "var(--amber)", fontSize: "0.8rem", cursor: "pointer",
                                 }}
-                                title="Retry ingestion"
+                                title="Try again"
                               >
                                 ↺
                               </button>

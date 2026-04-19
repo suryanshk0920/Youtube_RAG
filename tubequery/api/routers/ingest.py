@@ -68,6 +68,50 @@ async def ingest_stream(
     uid = user["uid"]
     upsert_user(db, uid, user.get("email", ""))
 
+    # Validate and parse URL first (strict validation)
+    from core.youtube import parse_url, validate_youtube_url
+    from services.subscription_service_redis import PlanType
+    
+    try:
+        # First validate it's a legitimate YouTube URL
+        validate_youtube_url(body.url)
+        
+        # Then parse to get type
+        parsed = parse_url(body.url)
+        logger.info(f"Parsed URL type: {parsed['type']} for URL: {body.url}")
+        
+        # Check if URL is a playlist/channel and restrict to Pro users
+        if parsed["type"] in ("playlist", "channel"):
+            # Check user's plan
+            subscription_service = RedisSubscriptionService(db)
+            plan_type, _ = await subscription_service.get_user_plan(uid)
+            logger.info(f"User {uid} has plan: {plan_type}")
+            
+            # Compare with enum value, not string
+            if plan_type == PlanType.FREE:
+                logger.warning(f"Blocking playlist ingestion for free user {uid}")
+                def playlist_restricted():
+                    yield f"data: {json.dumps({'type': 'error', 'detail': 'Playlists and channels are for Pro users! Upgrade to add multiple videos at once.', 'upgrade_required': True, 'feature': 'playlist'})}\n\n"
+                return StreamingResponse(playlist_restricted(), media_type="text/event-stream",
+                                         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+            else:
+                logger.info(f"Allowing playlist ingestion for {plan_type} user {uid}")
+                
+    except ValueError as ve:
+        # URL validation or parsing failed - return clear error
+        error_msg = str(ve)
+        logger.warning(f"URL validation failed for user {uid}: {error_msg}")
+        def validation_error():
+            yield f"data: {json.dumps({'type': 'error', 'detail': error_msg})}\n\n"
+        return StreamingResponse(validation_error(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    except Exception as e:
+        logger.error(f"Error checking playlist restriction: {e}", exc_info=True)
+        def server_error():
+            yield f"data: {json.dumps({'type': 'error', 'detail': 'Failed to validate URL. Please try again.'})}\n\n"
+        return StreamingResponse(server_error(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
     # Deduplication — scoped to this user
     existing = db.table("sources").select("*").eq("user_id", uid).eq("url", body.url.strip()).execute()
     duplicate = next((s for s in (existing.data or []) if s.get("chunk_count", 0) > 0), None)

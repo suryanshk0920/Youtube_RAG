@@ -49,7 +49,7 @@ export interface IngestStreamCallbacks {
   onStep: (step: string, detail: string) => void
   onProgress: (current: number, total: number, video: string) => void
   onDone: (result: IngestResponse) => void
-  onError: (error: string) => void
+  onError: (error: string, upgradeRequired?: boolean, details?: any) => void
 }
 
 export async function streamIngest(
@@ -90,7 +90,14 @@ export async function streamIngest(
         if (event.type === "step") callbacks.onStep(event.step, event.detail)
         else if (event.type === "progress") callbacks.onProgress(event.current, event.total, event.video)
         else if (event.type === "done") callbacks.onDone(event.source)
-        else if (event.type === "error") callbacks.onError(event.detail)
+        else if (event.type === "error") {
+          // Handle upgrade-required errors (playlist restriction, limits, etc.)
+          if (event.upgrade_required || event.feature) {
+            callbacks.onError(event.detail, true, event.limit_details || { feature: event.feature })
+          } else {
+            callbacks.onError(event.detail)
+          }
+        }
       } catch { /* skip */ }
     }
   }

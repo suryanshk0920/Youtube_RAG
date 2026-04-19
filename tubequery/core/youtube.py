@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+from urllib.parse import urlparse, parse_qs
 
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -21,7 +22,14 @@ import config
 
 logger = logging.getLogger(__name__)
 
-# ── URL Parsing ─────────────────────────────────────────────────────
+# ── URL Validation & Parsing ────────────────────────────────────────
+
+# Allowed YouTube domains (no shortened URLs or redirects)
+ALLOWED_DOMAINS = {
+    "youtube.com",
+    "www.youtube.com",
+    "m.youtube.com",
+}
 
 # Pre-compiled patterns for efficiency
 _VIDEO_PATTERN = re.compile(
@@ -35,9 +43,44 @@ _CHANNEL_PATTERNS = [
 ]
 
 
+def validate_youtube_url(url: str) -> None:
+    """
+    Validate that the URL is a legitimate YouTube URL.
+    
+    Raises
+    ------
+    ValueError
+        If URL is not from an allowed YouTube domain or uses URL shorteners.
+    """
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        
+        # Remove 'www.' prefix for comparison
+        if domain.startswith('www.'):
+            domain = domain[4:]
+        
+        # Check if domain is allowed
+        if domain not in ALLOWED_DOMAINS and f"www.{domain}" not in ALLOWED_DOMAINS:
+            raise ValueError(
+                "Please use a direct YouTube link. Shortened URLs aren't supported."
+            )
+        
+        # Ensure HTTPS
+        if parsed.scheme != "https":
+            raise ValueError("Please use a secure YouTube link (starting with https://)")
+            
+    except Exception as e:
+        if isinstance(e, ValueError):
+            raise
+        raise ValueError("That doesn't look like a valid link. Copy it directly from YouTube!")
+
+
 def parse_url(url: str) -> dict:
     """
     Parse a YouTube URL and return its type and ID.
+    
+    Security: Only accepts direct YouTube URLs, no shortened URLs or redirects.
 
     Returns
     -------
@@ -47,19 +90,23 @@ def parse_url(url: str) -> dict:
     Raises
     ------
     ValueError
-        If *url* is not a recognised YouTube URL.
+        If *url* is not a recognised YouTube URL or uses URL shorteners.
     """
     url = url.strip()
+    
+    # First, validate the URL is from YouTube
+    validate_youtube_url(url)
 
-    # Single video
-    match = _VIDEO_PATTERN.search(url)
-    if match:
-        return {"type": "video", "id": match.group(1), "url": url}
-
-    # Playlist
+    # Check for playlist first (higher priority than single video)
+    # This catches both direct playlist URLs and video URLs with playlist parameter
     match = _PLAYLIST_PATTERN.search(url)
     if match:
         return {"type": "playlist", "id": match.group(1), "url": url}
+
+    # Single video (only if no playlist parameter)
+    match = _VIDEO_PATTERN.search(url)
+    if match:
+        return {"type": "video", "id": match.group(1), "url": url}
 
     # Channel
     for pattern in _CHANNEL_PATTERNS:
@@ -67,7 +114,10 @@ def parse_url(url: str) -> dict:
         if match:
             return {"type": "channel", "id": match.group(1), "url": url}
 
-    raise ValueError(f"Could not parse YouTube URL: {url}")
+    raise ValueError(
+        "Hmm, we couldn't recognize that YouTube link. "
+        "Try copying it directly from YouTube!"
+    )
 
 
 # ── Playlist Video Enumeration ──────────────────────────────────────
@@ -168,10 +218,15 @@ def fetch_transcript(video_id: str) -> list[dict]:
             os.path.dirname(__file__), "..", "youtube_cookies.txt"
         )
         if os.path.exists(cookies_path):
-            jar = http.cookiejar.MozillaCookieJar(cookies_path)
-            jar.load(ignore_discard=True, ignore_expires=True)
-            session.cookies.update(jar)
-            logger.info("Using YouTube cookies from %s", cookies_path)
+            try:
+                jar = http.cookiejar.MozillaCookieJar(cookies_path)
+                jar.load(ignore_discard=True, ignore_expires=True)
+                session.cookies.update(jar)
+                logger.info("Using YouTube cookies from %s", cookies_path)
+            except Exception as e:
+                logger.warning("Failed to load cookies from %s: %s", cookies_path, e)
+        else:
+            logger.debug("No cookies file found at %s, proceeding without cookies", cookies_path)
 
         api = YouTubeTranscriptApi(http_client=session)
         transcript = api.fetch(video_id, languages=["en", "en-US", "en-GB"])

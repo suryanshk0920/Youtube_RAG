@@ -87,20 +87,32 @@ class RedisSubscriptionService:
         return self._redis_service
     
     async def get_user_plan(self, user_id: str) -> Tuple[PlanType, Dict]:
-        """Get user's current plan and subscription details with caching."""
+        """Get user's current plan and subscription details (always fresh from database)."""
         try:
-            # Try Redis cache first for performance
-            redis_service = await self._get_redis_service()
-            cache_key = f"user_plan:{user_id}"
-            
-            # Check cache (implement if needed)
-            # For now, query database directly but could add Redis caching
+            # Always query database directly to avoid stale cache issues
+            # Redis caching for plan data is intentionally disabled to ensure
+            # subscription changes are reflected immediately
             
             result = self.db.table("user_subscriptions").select("*").eq("user_id", user_id).execute()
             
             if result.data and len(result.data) > 0:
-                plan_type = PlanType(result.data[0]["plan_type"])
-                return plan_type, result.data[0]
+                subscription = result.data[0]
+                plan_type = PlanType(subscription["plan_type"])
+                
+                # Check if subscription is still valid
+                if subscription.get("current_period_end"):
+                    end_date = datetime.fromisoformat(subscription["current_period_end"].replace('Z', '+00:00'))
+                    if end_date < datetime.now(timezone.utc):
+                        # Subscription expired, return free plan
+                        logger.warning(f"Subscription expired for user {user_id}")
+                        return PlanType.FREE, {
+                            "user_id": user_id,
+                            "plan_type": PlanType.FREE.value,
+                            "status": "expired",
+                            "created_at": datetime.now(timezone.utc).isoformat()
+                        }
+                
+                return plan_type, subscription
             else:
                 # Default to free plan
                 return PlanType.FREE, {
@@ -111,6 +123,7 @@ class RedisSubscriptionService:
                 }
         except Exception as e:
             logger.error(f"Error getting user plan: {e}")
+            # On error, default to free plan (fail-safe)
             return PlanType.FREE, {}
     
     async def get_daily_usage_redis(self, user_id: str) -> Dict[str, int]:

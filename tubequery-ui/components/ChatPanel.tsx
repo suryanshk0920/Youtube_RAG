@@ -169,7 +169,7 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, generatingSu
                   TubeQuery
                 </p>
                 <p style={{ fontSize: "0.92rem", color: "var(--text-muted)", maxWidth: "260px", lineHeight: 1.6 }}>
-                  Ingest a YouTube video on the right, then ask anything about its content.
+                  Add a YouTube video on the right, then chat with it!
                 </p>
               </div>
             )}
@@ -212,7 +212,7 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, generatingSu
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input) } }}
-                placeholder="Ask anything about your videos…"
+                placeholder="Ask me anything..."
                 rows={1}
                 style={{
                   flex: 1, background: "transparent", border: "none", outline: "none",
@@ -256,7 +256,7 @@ export function ChatPanel({ activeKb, activeSourceId, pendingIntro, generatingSu
               </button>
             </div>
             <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "10px", fontFamily: "var(--font-dm-mono), monospace", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-              Precision Engine • Enter to send
+              AI-Powered • Press Enter to send
             </p>
           </div>
         </div>

@@ -44,7 +44,27 @@ TubeQuery is a sophisticated YouTube RAG (Retrieval-Augmented Generation) system
 - **Database**: Supabase PostgreSQL
 - **AI Model**: Google Gemini Pro/Flash
 - **Video Processing**: YouTube Data API v3
-- **Transcript Extraction**: yt-dlp + whisper (fallback)
+- **Transcript Extraction**: youtube-transcript-api
+- **Caching & Rate Limiting**: Upstash Redis
+
+## YouTube Integration Details
+
+### API Dependencies
+1. **YouTube Data API v3**: Required for playlist enumeration and video metadata
+2. **YouTube oEmbed API**: Used for video titles (no auth required)
+3. **youtube-transcript-api**: For transcript extraction
+
+### Cookie Usage (Optional)
+- `youtube_cookies.txt` is used only for transcript fetching
+- **Production Impact**: System works without cookies, but may experience:
+  - Occasional transcript failures for restricted videos
+  - IP-based rate limiting for high-volume usage
+- **Recommendation**: Deploy without cookies initially, add if needed
+
+### Production Deployment Notes
+- YouTube API key is essential for playlist support
+- Cookies file is optional but can improve transcript success rate
+- All API calls include proper error handling and fallbacks
 
 ## Detailed Component Architecture
 
