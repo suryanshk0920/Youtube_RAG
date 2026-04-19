@@ -149,11 +149,3 @@ Every service sits behind an abstract interface. To swap a component, create a n
 | LLM | OpenRouter | `LLMService` |
 
 ---
-
-## Roadmap
-
-- [ ] Next.js frontend
-- [ ] FastAPI backend for multi-user support
-- [ ] Qdrant Cloud for hosted vector storage
-- [ ] Auth + per-user knowledge bases
-- [ ] Streaming responses

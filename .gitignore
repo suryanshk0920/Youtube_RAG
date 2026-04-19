@@ -85,3 +85,8 @@ yarn-error.log*
 # Deployment
 .vercel
 .netlify
+
+# Sensitive Files - Never Commit These!
+tubequery/youtube_cookies.txt
+*.cookies
+cookies.txt
