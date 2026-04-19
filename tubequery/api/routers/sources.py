@@ -27,7 +27,7 @@ def list_sources(
     return result.data or []
 
 
-@router.delete("/{source_id}", status_code=204)
+@router.delete("/{source_id}", status_code=403)
 def delete_source(
     source_id: str,
     kb_id: str = Query(...),
@@ -35,12 +35,11 @@ def delete_source(
     db: Any = Depends(get_supabase),
     vector_store=Depends(get_vector_store),
 ):
-    """Delete a source — only if it belongs to the current user."""
-    result = db.table("sources").select("id").eq("id", source_id).eq("user_id", user["uid"]).execute()
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Source not found")
-    vector_store.delete_source(source_id, kb_id)
-    db.table("sources").delete().eq("id", source_id).eq("user_id", user["uid"]).execute()
+    """Delete source endpoint disabled to prevent usage manipulation."""
+    raise HTTPException(
+        status_code=403, 
+        detail="Video deletion is disabled. Videos remain in your library permanently to ensure fair usage tracking."
+    )
 
 
 @router.get("/stats/{kb_id}")

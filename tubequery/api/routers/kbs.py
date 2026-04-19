@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from api.auth import get_current_user, get_supabase
-from api.db import PLAN_LIMITS, get_user
+from api.db_orm import PLAN_LIMITS, get_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/kbs", tags=["knowledge_bases"])
@@ -26,16 +26,37 @@ def list_kbs(
     user: dict = Depends(get_current_user),
     db: Any = Depends(get_supabase),
 ):
-    """List KBs for the current user. Auto-creates 'default' if none exist."""
+    """List KBs for the current user. Auto-creates user and default KB if needed."""
     uid = user["uid"]
+    email = user.get("email")
+    display_name = user.get("name") or user.get("displayName")
+    
+    # First ensure user exists in user_profiles table
+    try:
+        db.table("user_profiles").upsert({
+            "uid": uid,
+            "email": email,
+            "display_name": display_name,
+            "updated_at": "now()"
+        }, on_conflict="uid").execute()
+    except Exception as e:
+        logger.warning(f"Failed to upsert user {uid}: {e}")
+    
+    # Get all KBs for the user
     result = db.table("knowledge_bases").select("*").eq("user_id", uid).order("created_at").execute()
     kbs = result.data or []
-
-    # Auto-create default KB on first login
+    
+    # Create default KB if none exist
     if not kbs:
-        created = db.table("knowledge_bases").insert({"user_id": uid, "name": "default"}).execute()
-        kbs = created.data or []
-
+        try:
+            created = db.table("knowledge_bases").insert({"user_id": uid, "name": "default"}).execute()
+            kbs = created.data or []
+        except Exception as e:
+            # If insert fails, try to get existing default KB
+            logger.warning(f"Failed to create default KB for user {uid}: {e}")
+            result = db.table("knowledge_bases").select("*").eq("user_id", uid).eq("name", "default").execute()
+            kbs = result.data or []
+    
     return kbs
 
 

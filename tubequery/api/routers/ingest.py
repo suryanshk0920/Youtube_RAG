@@ -2,6 +2,7 @@
 Ingest Router — auth-protected, user-scoped
 """
 from __future__ import annotations
+from typing import Any, AsyncGenerator
 import json
 import logging
 from typing import Any, Generator
@@ -10,11 +11,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from api.auth import get_current_user, get_supabase
-from api.db import check_limit, log_usage, upsert_user
+from api.db_orm import check_limit, log_usage, upsert_user
 from api.dependencies import get_embedding_service, get_llm_service, get_vector_store
 from api.schemas import IngestRequest, IngestResponse, IntroResponse
 from core.ingestion import ingest_url
 from core.retriever import generate_intro
+from services.subscription_service_redis import RedisSubscriptionService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -56,7 +58,7 @@ def _save_source_to_db(db: Any, user_id: str, source) -> None:
 
 
 @router.post("/stream")
-def ingest_stream(
+async def ingest_stream(
     body: IngestRequest,
     user: dict = Depends(get_current_user),
     db: Any = Depends(get_supabase),
@@ -79,15 +81,28 @@ def ingest_stream(
 
     # Check plan limits before ingesting
     try:
-        check_limit(db, uid, "ingest")
-    except HTTPException as e:
-        error_msg = e.detail if isinstance(e.detail, str) else e.detail.get("message", "Limit exceeded")
-        def limit_error(msg=error_msg):
-            yield f"data: {json.dumps({'type': 'error', 'detail': msg})}\n\n"
-        return StreamingResponse(limit_error(), media_type="text/event-stream",
-                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+        subscription_service = RedisSubscriptionService(db)
+        can_ingest, limit_details = await subscription_service.check_video_limit(uid)
+        
+        if not can_ingest:
+            error_msg = limit_details.get("upgrade_message", {}).get("message", "Daily video limit reached")
+            def limit_error(msg=error_msg):
+                yield f"data: {json.dumps({'type': 'error', 'detail': msg, 'upgrade_required': True, 'limit_details': limit_details})}\n\n"
+            return StreamingResponse(limit_error(), media_type="text/event-stream",
+                                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    except Exception as e:
+        logger.error(f"Error checking video limit: {e}")
+        # Fall back to old limit check if subscription service fails
+        try:
+            check_limit(db, uid, "ingest")
+        except HTTPException as e:
+            error_msg = e.detail if isinstance(e.detail, str) else e.detail.get("message", "Limit exceeded")
+            def limit_error(msg=error_msg):
+                yield f"data: {json.dumps({'type': 'error', 'detail': msg})}\n\n"
+            return StreamingResponse(limit_error(), media_type="text/event-stream",
+                                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
-    def event_stream() -> Generator[str, None, None]:
+    async def event_stream() -> AsyncGenerator[str, None]:
         try:
             steps = []
 
@@ -113,6 +128,13 @@ def ingest_stream(
 
             _save_source_to_db(db, uid, source)
             log_usage(db, uid, "ingest", source.id, {"title": source.title, "chunk_count": source.chunk_count})
+            
+            # Update daily usage count (Redis-based)
+            try:
+                subscription_service = RedisSubscriptionService(db)
+                await subscription_service.increment_usage_redis(uid, "ingest")
+            except Exception as e:
+                logger.warning(f"Failed to update daily usage: {e}")
 
             yield f"data: {json.dumps({'type': 'step', 'step': 'done', 'detail': f'{source.chunk_count} chunks indexed'})}\n\n"
             yield f"data: {json.dumps({'type': 'done', 'source': _source_to_dict(source)})}\n\n"

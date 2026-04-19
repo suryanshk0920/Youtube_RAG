@@ -14,11 +14,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from api.auth import get_current_user, get_supabase
-from api.db import log_usage, upsert_user
+from api.db_orm import log_usage, upsert_user
 from api.dependencies import get_embedding_service, get_llm_service, get_vector_store
 from api.schemas import ChatRequest, ChatResponse, CitationOut
 from core.retriever import ask
 from utils.security import sanitize_input, SECURITY_HEADERS
+from services.subscription_service_redis import RedisSubscriptionService
 import config
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.post("", response_model=ChatResponse)
-def chat(
+async def chat(
     body: ChatRequest,
     user: dict = Depends(get_current_user),
     db=Depends(get_supabase),
@@ -36,6 +37,20 @@ def chat(
 ):
     """Ask a question against an ingested knowledge base."""
     try:
+        # Check question limit before processing
+        subscription_service = RedisSubscriptionService(db)
+        can_ask, limit_details = await subscription_service.check_question_limit(user["uid"])
+        
+        if not can_ask:
+            raise HTTPException(
+                status_code=429, 
+                detail={
+                    "message": limit_details.get("upgrade_message", {}).get("message", "Daily question limit reached"),
+                    "upgrade_required": True,
+                    "limit_details": limit_details
+                }
+            )
+        
         # Additional security validation (Pydantic already validates)
         sanitize_input(body.question)
         
@@ -50,6 +65,17 @@ def chat(
             source_ids=body.source_ids,
         )
         log_usage(db, user["uid"], "chat", metadata={"question": body.question[:100]})
+        
+        # Update daily usage count (Redis-based)
+        try:
+            subscription_service = RedisSubscriptionService(db)
+            await subscription_service.increment_usage_redis(user["uid"], "chat")
+            logger.info(f"Successfully incremented chat usage for user {user['uid']}")
+        except Exception as e:
+            logger.error(f"Failed to update daily usage for user {user['uid']}: {e}")
+            # Also log the full traceback for debugging
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
         
         response = ChatResponse(
             answer=answer.text,
@@ -66,13 +92,15 @@ def chat(
     except ValueError as e:
         logger.warning(f"Invalid input from user {user['uid']}: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Chat failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/stream")
-def chat_stream(
+async def chat_stream(
     body: ChatRequest,
     user: dict = Depends(get_current_user),
     db=Depends(get_supabase),
@@ -89,8 +117,17 @@ def chat_stream(
       data: {"type": "done"}                          — stream complete
       data: {"type": "error",    "content": "..."}    — error message
     """
-    def event_stream():
+    async def event_stream():
         try:
+            # Check question limit before processing
+            subscription_service = RedisSubscriptionService(db)
+            can_ask, limit_details = await subscription_service.check_question_limit(user["uid"])
+            
+            if not can_ask:
+                error_msg = limit_details.get("upgrade_message", {}).get("message", "Daily question limit reached")
+                yield f"data: {json.dumps({'type': 'error', 'content': error_msg, 'upgrade_required': True, 'limit_details': limit_details})}\n\n"
+                return
+
             history = [{"role": m.role, "content": m.content} for m in body.history]
 
             # Retrieve relevant chunks first (non-streaming)
@@ -138,6 +175,18 @@ def chat_stream(
                 yield f"data: {json.dumps({'type': 'citation', 'content': {'video_title': c.video_title, 'video_id': c.video_id, 'timestamp_label': c.timestamp_label, 'youtube_url': c.youtube_url, 'excerpt': c.excerpt}})}\n\n"
 
             log_usage(db, user["uid"], "chat", metadata={"question": body.question[:100]})
+            
+            # Update daily usage count (Redis-based)
+            try:
+                subscription_service = RedisSubscriptionService(db)
+                await subscription_service.increment_usage_redis(user["uid"], "chat")
+                logger.info(f"Successfully incremented chat usage for user {user['uid']}")
+            except Exception as e:
+                logger.error(f"Failed to update daily usage for user {user['uid']}: {e}")
+                # Also log the full traceback for debugging
+                import traceback
+                logger.error(f"Full traceback: {traceback.format_exc()}")
+            
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         except Exception as e:

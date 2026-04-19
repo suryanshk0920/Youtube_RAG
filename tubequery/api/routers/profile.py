@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 
 from api.auth import get_current_user, get_supabase
-from api.db import get_monthly_usage, get_user, upsert_user, PLAN_LIMITS
+from api.db_orm import get_monthly_usage, get_user, upsert_user, PLAN_LIMITS
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/profile", tags=["profile"])

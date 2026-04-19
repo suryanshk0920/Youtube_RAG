@@ -86,6 +86,10 @@ class _TableQuery:
         self._filters.append(f"{col}=gte.{val}")
         return self
 
+    def lt(self, col: str, val) -> "_TableQuery":
+        self._filters.append(f"{col}=lt.{val}")
+        return self
+
     def order(self, col: str, desc: bool = False) -> "_TableQuery":
         self._order = f"{col}.{'desc' if desc else 'asc'}"
         return self

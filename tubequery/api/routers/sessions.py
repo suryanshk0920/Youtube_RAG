@@ -12,7 +12,7 @@ from typing import Any
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from api.auth import get_current_user, get_supabase
-from api.db import (
+from api.db_orm import (
     create_session,
     delete_session,
     get_session,
