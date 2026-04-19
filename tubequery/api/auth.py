@@ -27,16 +27,49 @@ logger = logging.getLogger(__name__)
 def _init_firebase() -> None:
     if firebase_admin._apps:
         return  # already initialised
+    
+    # Method 1: Try to read from file path (recommended for production)
+    firebase_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "")
+    if firebase_path:
+        if not os.path.exists(firebase_path):
+            raise RuntimeError(f"FIREBASE_SERVICE_ACCOUNT_PATH is set but file not found: {firebase_path}")
+        try:
+            cred = credentials.Certificate(firebase_path)
+            firebase_admin.initialize_app(cred)
+            logger.info(f"Firebase Admin SDK initialised from file: {firebase_path}")
+            return
+        except Exception as e:
+            raise RuntimeError(f"Failed to load Firebase from file {firebase_path}: {e}")
+    
+    # Method 2: Try to read from JSON string (for local development)
     sa = os.getenv("FIREBASE_SERVICE_ACCOUNT", "")
-    if not sa:
-        raise RuntimeError("FIREBASE_SERVICE_ACCOUNT env var is not set")
-    try:
-        sa_dict = json.loads(sa)
-        cred = credentials.Certificate(sa_dict)
-    except (json.JSONDecodeError, ValueError) as e:
-        raise RuntimeError(f"Invalid FIREBASE_SERVICE_ACCOUNT JSON: {e}")
-    firebase_admin.initialize_app(cred)
-    logger.info("Firebase Admin SDK initialised (project: %s)", sa_dict.get("project_id"))
+    if sa:
+        try:
+            sa_dict = json.loads(sa)
+            cred = credentials.Certificate(sa_dict)
+            firebase_admin.initialize_app(cred)
+            logger.info("Firebase Admin SDK initialised from JSON string (project: %s)", sa_dict.get("project_id"))
+            return
+        except (json.JSONDecodeError, ValueError) as e:
+            raise RuntimeError(f"Invalid FIREBASE_SERVICE_ACCOUNT JSON: {e}")
+    
+    # Method 3: Try to read from default file location (fallback for local dev)
+    default_path = os.path.join(os.path.dirname(__file__), "..", "firebase-service-account.json")
+    if os.path.exists(default_path):
+        try:
+            cred = credentials.Certificate(default_path)
+            firebase_admin.initialize_app(cred)
+            logger.info(f"Firebase Admin SDK initialised from default file: {default_path}")
+            return
+        except Exception as e:
+            raise RuntimeError(f"Failed to load Firebase from default file {default_path}: {e}")
+    
+    raise RuntimeError(
+        "Firebase service account not configured. Please set one of:\n"
+        "  - FIREBASE_SERVICE_ACCOUNT_PATH (path to JSON file)\n"
+        "  - FIREBASE_SERVICE_ACCOUNT (JSON string)\n"
+        "  - Or place firebase-service-account.json in tubequery/ directory"
+    )
 
 
 _init_firebase()
